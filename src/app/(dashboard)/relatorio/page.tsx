@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Printer, Loader2, FileText } from "lucide-react";
+import { Printer, Loader2, FileText, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -127,10 +127,22 @@ export default function RelatorioPage() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={() => window.print()} className="gap-2 self-end">
-            <Printer className="w-4 h-4" />
-            Imprimir / PDF
-          </Button>
+          <div className="flex gap-2 self-end">
+            <Button variant="outline" onClick={() => window.print()} className="gap-2">
+              <Printer className="w-4 h-4" />
+              Imprimir
+            </Button>
+            <Button onClick={() => {
+              const style = document.createElement("style");
+              style.innerHTML = `@media print { body * { visibility: hidden; } #report-content, #report-content * { visibility: visible; } #report-content { position: absolute; top: 0; left: 0; width: 100%; padding: 20px; } }`;
+              document.head.appendChild(style);
+              window.print();
+              setTimeout(() => document.head.removeChild(style), 1000);
+            }} className="gap-2">
+              <Download className="w-4 h-4" />
+              Salvar PDF
+            </Button>
+          </div>
         </div>
       </div>
 

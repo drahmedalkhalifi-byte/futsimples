@@ -11,17 +11,19 @@ import {
   CalendarCheck,
   CalendarDays,
   FileBarChart,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
-  { label: "Dashboard",  href: "/dashboard", icon: LayoutDashboard },
-  { label: "Alunos",     href: "/alunos",    icon: Users },
-  { label: "Presença",   href: "/presenca",  icon: CalendarCheck },
-  { label: "Pagamentos", href: "/pagamentos",icon: CreditCard },
-  { label: "Despesas",   href: "/gastos",    icon: Receipt },
-  { label: "Agenda",     href: "/agenda",    icon: CalendarDays },
-  { label: "Relatório",  href: "/relatorio", icon: FileBarChart },
+  { label: "Dashboard",     href: "/dashboard",     icon: LayoutDashboard },
+  { label: "Alunos",        href: "/alunos",        icon: Users },
+  { label: "Presença",      href: "/presenca",      icon: CalendarCheck },
+  { label: "Pagamentos",    href: "/pagamentos",    icon: CreditCard },
+  { label: "Despesas",      href: "/gastos",        icon: Receipt },
+  { label: "Agenda",        href: "/agenda",        icon: CalendarDays },
+  { label: "Relatório",     href: "/relatorio",     icon: FileBarChart },
+  { label: "Configurações", href: "/configuracoes", icon: Settings },
 ];
 
 export function Sidebar() {

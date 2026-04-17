@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import Link from "next/link";
 import { useAuth } from "@/contexts/auth-context";
 
 function getFirebaseErrorMessage(code: string): string {
@@ -205,6 +206,11 @@ export default function LoginPage() {
             )}
           </CardContent>
         </Card>
+        <p className="text-center text-xs text-muted-foreground">
+          <Link href="/privacidade" className="hover:underline">Privacidade</Link>
+          {" · "}
+          <Link href="/termos" className="hover:underline">Termos de Uso</Link>
+        </p>
       </div>
     </div>
   );

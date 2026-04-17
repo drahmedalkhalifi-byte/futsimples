@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, CreditCard, Receipt, Trophy, Menu, CalendarCheck, CalendarDays, FileBarChart } from "lucide-react";
+import { LayoutDashboard, Users, CreditCard, Receipt, Trophy, Menu, CalendarCheck, CalendarDays, FileBarChart, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Sheet,
@@ -20,7 +20,8 @@ const navItems = [
   { label: "Pagamentos", href: "/pagamentos", icon: CreditCard },
   { label: "Despesas", href: "/gastos", icon: Receipt },
   { label: "Agenda", href: "/agenda", icon: CalendarDays },
-  { label: "Relatório", href: "/relatorio", icon: FileBarChart },
+  { label: "Relatório",     href: "/relatorio",     icon: FileBarChart },
+  { label: "Configurações", href: "/configuracoes", icon: Settings },
 ];
 
 export function MobileNav() {
