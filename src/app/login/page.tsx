@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Trophy, Loader2, AlertCircle } from "lucide-react";
+import { Trophy, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { sendPasswordResetEmail } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +38,32 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showReset, setShowReset] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetSent, setResetSent] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState("");
+
+  async function handleReset(e: React.FormEvent) {
+    e.preventDefault();
+    const trimmed = resetEmail.trim();
+    if (!trimmed) { setResetError("Digite seu email."); return; }
+    setResetLoading(true);
+    setResetError("");
+    try {
+      await sendPasswordResetEmail(auth, trimmed);
+      setResetSent(true);
+    } catch (err: unknown) {
+      const code = err && typeof err === "object" && "code" in err ? String((err as { code: string }).code) : "";
+      if (code === "auth/user-not-found" || code === "auth/invalid-email") {
+        setResetError("Email não encontrado. Verifique e tente novamente.");
+      } else {
+        setResetError("Erro ao enviar. Tente novamente.");
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -88,55 +116,93 @@ export default function LoginPage() {
         {/* Login Form */}
         <Card className="border border-border/50 shadow-sm">
           <CardContent className="p-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    if (error) setError("");
-                  }}
-                  placeholder="seu@email.com"
-                  required
-                  autoFocus
-                  disabled={loading}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="password">Senha</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    if (error) setError("");
-                  }}
-                  placeholder="••••••••"
-                  required
-                  disabled={loading}
-                />
-              </div>
-              {error && (
-                <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3">
-                  <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                  <p className="text-sm text-destructive">{error}</p>
+            {!showReset ? (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => { setEmail(e.target.value); if (error) setError(""); }}
+                    placeholder="seu@email.com"
+                    required
+                    autoFocus
+                    disabled={loading}
+                  />
                 </div>
-              )}
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Entrando...
-                  </>
-                ) : (
-                  "Entrar"
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">Senha</Label>
+                    <button
+                      type="button"
+                      onClick={() => { setShowReset(true); setResetEmail(email); }}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Esqueci minha senha
+                    </button>
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => { setPassword(e.target.value); if (error) setError(""); }}
+                    placeholder="••••••••"
+                    required
+                    disabled={loading}
+                  />
+                </div>
+                {error && (
+                  <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3">
+                    <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                    <p className="text-sm text-destructive">{error}</p>
+                  </div>
                 )}
-              </Button>
-            </form>
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Entrando...</> : "Entrar"}
+                </Button>
+              </form>
+            ) : (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Redefinir senha</h3>
+                  <p className="text-xs text-muted-foreground mt-1">Enviaremos um link para o seu email.</p>
+                </div>
+                {resetSent ? (
+                  <div className="flex items-start gap-2 rounded-lg bg-green-50 border border-green-200 p-3">
+                    <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
+                    <p className="text-sm text-green-700">Email enviado! Verifique sua caixa de entrada.</p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleReset} className="space-y-3">
+                    <Input
+                      type="email"
+                      value={resetEmail}
+                      onChange={(e) => { setResetEmail(e.target.value); setResetError(""); }}
+                      placeholder="seu@email.com"
+                      autoFocus
+                      disabled={resetLoading}
+                    />
+                    {resetError && (
+                      <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/20 p-3">
+                        <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                        <p className="text-sm text-destructive">{resetError}</p>
+                      </div>
+                    )}
+                    <Button type="submit" className="w-full" disabled={resetLoading}>
+                      {resetLoading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Enviando...</> : "Enviar link"}
+                    </Button>
+                  </form>
+                )}
+                <button
+                  type="button"
+                  onClick={() => { setShowReset(false); setResetSent(false); setResetError(""); }}
+                  className="text-xs text-primary hover:underline w-full text-center"
+                >
+                  Voltar para o login
+                </button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
