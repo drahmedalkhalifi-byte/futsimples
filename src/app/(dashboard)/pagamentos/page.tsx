@@ -56,21 +56,13 @@ const PAYMENT_TYPE_LABELS: Record<PaymentType, string> = {
   outros: "Outros",
 };
 
-// UTF-8 percent-encoded bytes for emoji — hardcoded to avoid any encoding issues
-// ⚽ U+26BD  → UTF-8: E2 9A BD
-// 🙌 U+1F64C → UTF-8: F0 9F 99 8C
-const PCT_BALL  = "%E2%9A%BD";
-const PCT_HANDS = "%F0%9F%99%8C";
-
 function whatsappUrl(studentName: string, guardian: string, phone: string, amount: number, dueDate: unknown): string {
   const number = formatWhatsAppNumber(phone);
   const formattedAmount = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(amount);
   const formattedDate = formatDate(dueDate);
-  const text =
-    encodeURIComponent(`Ol\u00E1, ${guardian}! `) +
-    PCT_BALL +
-    encodeURIComponent(` A mensalidade de *${studentName}* est\u00E1 *pendente* no valor de *${formattedAmount}* com vencimento em *${formattedDate}*. Contamos com voc\u00EA para regularizar! Qualquer d\u00FAvida, \u00E9 s\u00F3 chamar. `) +
-    PCT_HANDS;
+  const text = encodeURIComponent(
+    `Ol\u00E1, ${guardian}! A mensalidade de *${studentName}* est\u00E1 *pendente* no valor de *${formattedAmount}* com vencimento em *${formattedDate}*. Contamos com voc\u00EA para regularizar! Qualquer d\u00FAvida, \u00E9 s\u00F3 chamar.`
+  );
   return `https://wa.me/${number}?text=${text}`;
 }
 

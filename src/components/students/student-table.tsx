@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { Pencil, Trash2, Search, Loader2, Users, MessageCircle } from "lucide-react";
 import { formatWhatsAppNumber } from "@/lib/utils";
+import { useAuth } from "@/contexts/auth-context";
 import { StudentForm } from "./student-form";
 import type { Student, StudentCategory } from "@/types";
 
@@ -40,18 +41,11 @@ function formatPhone(p: string): string {
   return p;
 }
 
-// 😊 U+1F60A → UTF-8: F0 9F 98 8A
-// 🙏 U+1F64F → UTF-8: F0 9F 99 8F
-const PCT_SMILE = "%F0%9F%98%8A";
-const PCT_PRAY  = "%F0%9F%99%8F";
-
-function whatsappUrl(student: Student): string {
+function whatsappUrl(student: Student, schoolName: string): string {
   const number = formatWhatsAppNumber(student.phone);
-  const text =
-    encodeURIComponent(`Ol\u00E1 ${student.guardian}! `) +
-    PCT_SMILE +
-    encodeURIComponent(` Aqui \u00E9 da FutSimples, escola de futebol. Gostaria de falar sobre *${student.name}*. Quando puder, entre em contato. Obrigado! `) +
-    PCT_PRAY;
+  const text = encodeURIComponent(
+    `Ol\u00E1 ${student.guardian}! Aqui \u00E9 da ${schoolName}. Gostaria de falar sobre *${student.name}*. Quando puder, entre em contato. Obrigado!`
+  );
   return `https://wa.me/${number}?text=${text}`;
 }
 
@@ -84,6 +78,7 @@ export function StudentTable({
   onUpdate,
   onDelete,
 }: StudentTableProps) {
+  const { schoolName } = useAuth();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
@@ -227,7 +222,7 @@ export function StudentTable({
                     <div className="flex items-center justify-end gap-1">
                       {student.phone && (
                         <a
-                          href={whatsappUrl(student)}
+                          href={whatsappUrl(student, schoolName ?? "nossa escola")}
                           target="_blank"
                           rel="noopener noreferrer"
                           title="Contato via WhatsApp"

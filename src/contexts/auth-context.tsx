@@ -21,6 +21,7 @@ interface AuthState {
   firebaseUser: FirebaseUser | null;
   user: User | null;
   schoolId: string | null;
+  schoolName: string | null;
   role: UserRole | null;
   loading: boolean;
   error: string | null;
@@ -40,6 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     firebaseUser: null,
     user: null,
     schoolId: null,
+    schoolName: null,
     role: null,
     loading: true,
     error: null,
@@ -53,10 +55,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
             if (userDoc.exists()) {
               const userData = { id: userDoc.id, ...userDoc.data() } as User;
+              let schoolName: string | null = null;
+              try {
+                const schoolDoc = await getDoc(doc(db, "schools", userData.schoolId));
+                if (schoolDoc.exists()) schoolName = (schoolDoc.data().name as string) ?? null;
+              } catch { /* ignore */ }
               setState({
                 firebaseUser,
                 user: userData,
                 schoolId: userData.schoolId,
+                schoolName,
                 role: userData.role,
                 loading: false,
                 error: null,
@@ -74,10 +82,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   const retryDoc = await getDoc(doc(db, "users", firebaseUser.uid));
                   if (retryDoc.exists()) {
                     const userData = { id: retryDoc.id, ...retryDoc.data() } as User;
+                    let schoolName: string | null = null;
+                    try {
+                      const schoolDoc = await getDoc(doc(db, "schools", userData.schoolId));
+                      if (schoolDoc.exists()) schoolName = (schoolDoc.data().name as string) ?? null;
+                    } catch { /* ignore */ }
                     setState({
                       firebaseUser,
                       user: userData,
                       schoolId: userData.schoolId,
+                      schoolName,
                       role: userData.role,
                       loading: false,
                       error: null,
@@ -89,6 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                       firebaseUser,
                       user: null,
                       schoolId: null,
+                      schoolName: null,
                       role: null,
                       loading: false,
                       error: null,
@@ -102,6 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                       firebaseUser,
                       user: null,
                       schoolId: null,
+                      schoolName: null,
                       role: null,
                       loading: false,
                       error: null,
