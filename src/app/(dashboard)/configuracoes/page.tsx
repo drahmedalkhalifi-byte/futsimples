@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Settings, UserPlus, Loader2, Trash2, AlertCircle, CheckCircle2, Users } from "lucide-react";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc, serverTimestamp, collection, query, where, onSnapshot, deleteDoc } from "firebase/firestore";
+import { Settings, UserPlus, Loader2, Trash2, AlertCircle, CheckCircle2, Users, QrCode } from "lucide-react";
+import { createUserWithEmailAndPassword, getAuth } from "firebase/auth";
+import { initializeApp, deleteApp } from "firebase/app";
+import { doc, setDoc, serverTimestamp, collection, query, where, onSnapshot, deleteDoc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -47,6 +48,31 @@ export default function ConfiguracoesPage() {
   const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  // PIX key
+  const [pixKey, setPixKey] = useState("");
+  const [savingPix, setSavingPix] = useState(false);
+
+  // Load school data (for PIX key)
+  useEffect(() => {
+    if (!schoolId) return;
+    getDoc(doc(db, "schools", schoolId)).then((snap) => {
+      if (snap.exists()) setPixKey(snap.data().pixKey ?? "");
+    });
+  }, [schoolId]);
+
+  async function handleSavePix() {
+    if (!schoolId) return;
+    setSavingPix(true);
+    try {
+      await updateDoc(doc(db, "schools", schoolId), { pixKey: pixKey.trim(), updatedAt: serverTimestamp() });
+      toast.success("Chave PIX salva!");
+    } catch {
+      toast.error("Erro ao salvar chave PIX.");
+    } finally {
+      setSavingPix(false);
+    }
+  }
+
   // Load team members
   useEffect(() => {
     if (!schoolId) return;
@@ -75,8 +101,15 @@ export default function ConfiguracoesPage() {
 
     setSaving(true);
     setInviteError("");
+
+    // Use a secondary Firebase app so we don't log out the current admin.
+    // createUserWithEmailAndPassword automatically signs in the new user on
+    // the primary auth instance — that would kick the admin out.
+    const secondaryApp = initializeApp(auth.app.options, `secondary-${Date.now()}`);
+    const secondaryAuth = getAuth(secondaryApp);
+
     try {
-      const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+      const cred = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), password);
       await setDoc(doc(db, "users", cred.user.uid), {
         schoolId,
         email: email.trim(),
@@ -98,6 +131,8 @@ export default function ConfiguracoesPage() {
       }
     } finally {
       setSaving(false);
+      // Always clean up the secondary app to avoid memory leaks
+      await deleteApp(secondaryApp).catch(() => {});
     }
   }
 
@@ -141,6 +176,30 @@ export default function ConfiguracoesPage() {
           </div>
         </div>
       </section>
+
+      {/* PIX Key */}
+      {isAdmin && (
+        <section className="rounded-xl border border-border/50 bg-card p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <QrCode className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Chave PIX</h3>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Essa chave aparece automaticamente nas mensagens de cobrança enviadas pelo WhatsApp.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              value={pixKey}
+              onChange={(e) => setPixKey(e.target.value)}
+              placeholder="CPF, CNPJ, email, celular ou chave aleatória"
+              className="flex-1"
+            />
+            <Button onClick={handleSavePix} disabled={savingPix} className="shrink-0">
+              {savingPix ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar"}
+            </Button>
+          </div>
+        </section>
+      )}
 
       {/* Team */}
       <section className="space-y-4">

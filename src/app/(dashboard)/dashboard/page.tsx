@@ -4,6 +4,7 @@ import { DollarSign, TrendingDown, TrendingUp, Users, AlertTriangle, Loader2, Tr
 import { useDashboard } from "@/hooks/use-dashboard";
 import { StudentsChart } from "@/components/dashboard/students-chart";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
+import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -82,6 +83,9 @@ export default function DashboardPage() {
           <p className="text-sm text-muted-foreground">Visão geral da escola</p>
         </div>
       </div>
+
+      {/* Onboarding checklist — shown to new users until all steps done */}
+      <OnboardingChecklist activeStudents={activeStudents} />
 
       {/* KPI cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">

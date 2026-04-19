@@ -28,10 +28,16 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Pencil, Trash2, Search, Loader2, Users, MessageCircle } from "lucide-react";
+import {
+  Pencil, Trash2, Search, Loader2, Users, MessageCircle,
+  Link2, UserX, UserCheck,
+} from "lucide-react";
 import { formatWhatsAppNumber } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
+import { db } from "@/lib/firebase";
+import { doc, updateDoc, serverTimestamp } from "firebase/firestore";
 import { StudentForm } from "./student-form";
+import { FichaMedicaDialog } from "./ficha-medica-dialog";
 import type { Student, StudentCategory } from "@/types";
 
 function formatPhone(p: string): string {
@@ -63,13 +69,19 @@ const categoryColors: Record<StudentCategory, string> = {
   sub15:    "bg-rose-100 text-rose-700 border-rose-200",
 };
 
-const categories: StudentCategory[] = ["babyfoot", "sub6", "sub7", "sub8", "sub9", "sub10", "sub11", "sub12", "sub13", "sub14", "sub15"];
+const categories: StudentCategory[] = [
+  "babyfoot","sub6","sub7","sub8","sub9","sub10","sub11","sub12","sub13","sub14","sub15",
+];
 
 interface StudentTableProps {
   students: Student[];
   loading: boolean;
   onUpdate: (id: string, data: Partial<Student>) => Promise<void>;
   onDelete: (id: string) => Promise<void>;
+  onDeactivate?: (id: string) => Promise<void>;
+  onReactivate?: (id: string) => Promise<void>;
+  /** "active" = normal student list; "inactive" = ex-alunos list */
+  mode?: "active" | "inactive";
 }
 
 export function StudentTable({
@@ -77,12 +89,51 @@ export function StudentTable({
   loading,
   onUpdate,
   onDelete,
+  onDeactivate,
+  onReactivate,
+  mode = "active",
 }: StudentTableProps) {
   const { schoolName } = useAuth();
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 25;
+
+  // Delete confirmation
   const [deleteTarget, setDeleteTarget] = useState<Student | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Deactivate confirmation
+  const [deactivateTarget, setDeactivateTarget] = useState<Student | null>(null);
+  const [deactivating, setDeactivating] = useState(false);
+
+  // Reactivate confirmation
+  const [reactivateTarget, setReactivateTarget] = useState<Student | null>(null);
+  const [reactivating, setReactivating] = useState(false);
+
+  const [generatingPortal, setGeneratingPortal] = useState<string | null>(null);
+
+  async function handleCopyPortalLink(student: Student) {
+    setGeneratingPortal(student.id);
+    try {
+      let token = student.portalToken;
+      if (!token) {
+        token = crypto.randomUUID().replace(/-/g, "");
+        await updateDoc(doc(db, "students", student.id), {
+          portalToken: token,
+          updatedAt: serverTimestamp(),
+        });
+        await onUpdate(student.id, { portalToken: token });
+      }
+      const link = `${window.location.origin}/portal/${token}`;
+      await navigator.clipboard.writeText(link);
+      toast.success("Link do portal copiado! Cole no WhatsApp para o responsável.");
+    } catch {
+      toast.error("Erro ao gerar link do portal.");
+    } finally {
+      setGeneratingPortal(null);
+    }
+  }
 
   const filtered = students.filter((s) => {
     const matchesSearch =
@@ -92,19 +143,51 @@ export function StudentTable({
       categoryFilter === "all" || s.category === categoryFilter;
     return matchesSearch && matchesCategory;
   });
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paginated  = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   async function handleDelete() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
       await onDelete(deleteTarget.id);
-      toast.success(`${deleteTarget.name} foi removido.`);
+      toast.success(`${deleteTarget.name} foi removido permanentemente.`);
       setDeleteTarget(null);
     } catch (err) {
       console.error("Erro ao excluir aluno:", err);
       toast.error("Erro ao excluir aluno. Tente novamente.");
     } finally {
       setDeleting(false);
+    }
+  }
+
+  async function handleDeactivate() {
+    if (!deactivateTarget || !onDeactivate) return;
+    setDeactivating(true);
+    try {
+      await onDeactivate(deactivateTarget.id);
+      toast.success(`${deactivateTarget.name} foi desativado. Você pode reativar em Ex-alunos.`);
+      setDeactivateTarget(null);
+    } catch (err) {
+      console.error("Erro ao desativar aluno:", err);
+      toast.error("Erro ao desativar aluno. Tente novamente.");
+    } finally {
+      setDeactivating(false);
+    }
+  }
+
+  async function handleReactivate() {
+    if (!reactivateTarget || !onReactivate) return;
+    setReactivating(true);
+    try {
+      await onReactivate(reactivateTarget.id);
+      toast.success(`${reactivateTarget.name} foi reativado e voltou para a lista de alunos ativos!`);
+      setReactivateTarget(null);
+    } catch (err) {
+      console.error("Erro ao reativar aluno:", err);
+      toast.error("Erro ao reativar aluno. Tente novamente.");
+    } finally {
+      setReactivating(false);
     }
   }
 
@@ -121,7 +204,7 @@ export function StudentTable({
 
   return (
     <div className="space-y-4">
-      {/* Filters — only show if there are students */}
+      {/* Filters */}
       {students.length > 0 && (
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
@@ -129,11 +212,11 @@ export function StudentTable({
             <Input
               placeholder="Buscar por nome ou responsável..."
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setPage(0); }}
               className="pl-9"
             />
           </div>
-          <Select value={categoryFilter} onValueChange={(val) => val !== null && setCategoryFilter(val)}>
+          <Select value={categoryFilter} onValueChange={(val) => { if (val !== null) { setCategoryFilter(val); setPage(0); } }}>
             <SelectTrigger className="w-full sm:w-40">
               <SelectValue />
             </SelectTrigger>
@@ -154,10 +237,12 @@ export function StudentTable({
             <Users className="w-7 h-7 text-primary" />
           </div>
           <h3 className="text-base font-semibold text-foreground mb-1">
-            Nenhum aluno cadastrado
+            {mode === "inactive" ? "Nenhum ex-aluno" : "Nenhum aluno cadastrado"}
           </h3>
           <p className="text-sm text-muted-foreground text-center max-w-xs">
-            Comece cadastrando o primeiro aluno da sua escola usando o botão acima.
+            {mode === "inactive"
+              ? "Alunos desativados aparecem aqui. O histórico deles é preservado."
+              : "Comece cadastrando o primeiro aluno da sua escola usando o botão acima."}
           </p>
         </div>
       )}
@@ -170,10 +255,7 @@ export function StudentTable({
             Nenhum aluno encontrado com esses filtros.
           </p>
           <button
-            onClick={() => {
-              setSearch("");
-              setCategoryFilter("all");
-            }}
+            onClick={() => { setSearch(""); setCategoryFilter("all"); setPage(0); }}
             className="text-sm text-primary hover:underline mt-2"
           >
             Limpar filtros
@@ -182,7 +264,7 @@ export function StudentTable({
       )}
 
       {/* Table */}
-      {filtered.length > 0 && (
+      {paginated.length > 0 && (
         <div className="rounded-lg border border-border/50 overflow-hidden">
           <Table>
             <TableHeader>
@@ -190,64 +272,97 @@ export function StudentTable({
                 <TableHead>Nome</TableHead>
                 <TableHead>Idade</TableHead>
                 <TableHead>Categoria</TableHead>
-                <TableHead className="hidden md:table-cell">
-                  Responsável
-                </TableHead>
-                <TableHead className="hidden lg:table-cell">
-                  Telefone
-                </TableHead>
+                <TableHead className="hidden md:table-cell">Responsável</TableHead>
+                <TableHead className="hidden lg:table-cell">Telefone</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((student) => (
-                <TableRow key={student.id}>
+              {paginated.map((student) => (
+                <TableRow key={student.id} className={mode === "inactive" ? "opacity-70" : undefined}>
                   <TableCell className="font-medium">{student.name}</TableCell>
                   <TableCell>{student.age} anos</TableCell>
                   <TableCell>
-                    <Badge
-                      variant="outline"
-                      className={categoryColors[student.category]}
-                    >
+                    <Badge variant="outline" className={categoryColors[student.category]}>
                       {student.category}
                     </Badge>
                   </TableCell>
-                  <TableCell className="hidden md:table-cell">
-                    {student.guardian}
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    {formatPhone(student.phone)}
-                  </TableCell>
+                  <TableCell className="hidden md:table-cell">{student.guardian}</TableCell>
+                  <TableCell className="hidden lg:table-cell">{formatPhone(student.phone)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex items-center justify-end gap-1">
-                      {student.phone && (
-                        <a
-                          href={whatsappUrl(student, schoolName ?? "nossa escola")}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Contato via WhatsApp"
-                          className="inline-flex items-center justify-center rounded-md p-1.5 hover:bg-green-50 transition-colors"
-                        >
-                          <MessageCircle className="w-4 h-4 text-green-600" />
-                        </a>
+
+                      {/* Active-mode-only actions */}
+                      {mode === "active" && (
+                        <>
+                          {student.phone && (
+                            <a
+                              href={whatsappUrl(student, schoolName ?? "nossa escola")}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Contato via WhatsApp"
+                              className="inline-flex items-center justify-center rounded-md p-1.5 hover:bg-green-50 transition-colors"
+                            >
+                              <MessageCircle className="w-4 h-4 text-green-600" />
+                            </a>
+                          )}
+                          <FichaMedicaDialog student={student} onSave={onUpdate} />
+                          <button
+                            onClick={() => handleCopyPortalLink(student)}
+                            disabled={generatingPortal === student.id}
+                            title="Copiar link do portal do responsável"
+                            className="inline-flex items-center justify-center rounded-md p-1.5 hover:bg-accent transition-colors disabled:opacity-50"
+                          >
+                            {generatingPortal === student.id
+                              ? <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
+                              : <Link2 className="w-4 h-4 text-primary/70" />
+                            }
+                          </button>
+                        </>
                       )}
+
+                      {/* Edit — always shown */}
                       <StudentForm
                         student={student}
-                        onSubmit={async (data) => {
-                          await onUpdate(student.id, data);
-                        }}
+                        onSubmit={async (data) => { await onUpdate(student.id, data); }}
                         trigger={
                           <span className="inline-flex items-center justify-center rounded-md p-1.5 hover:bg-accent transition-colors cursor-pointer">
                             <Pencil className="w-4 h-4 text-muted-foreground" />
                           </span>
                         }
                       />
+
+                      {/* Deactivate — active mode only */}
+                      {mode === "active" && onDeactivate && (
+                        <button
+                          onClick={() => setDeactivateTarget(student)}
+                          title="Desativar aluno (mantém histórico)"
+                          className="inline-flex items-center justify-center rounded-md p-1.5 hover:bg-amber-500/10 transition-colors"
+                        >
+                          <UserX className="w-4 h-4 text-amber-500" />
+                        </button>
+                      )}
+
+                      {/* Reactivate — inactive mode only */}
+                      {mode === "inactive" && onReactivate && (
+                        <button
+                          onClick={() => setReactivateTarget(student)}
+                          title="Reativar aluno"
+                          className="inline-flex items-center justify-center rounded-md p-1.5 hover:bg-emerald-500/10 transition-colors"
+                        >
+                          <UserCheck className="w-4 h-4 text-emerald-500" />
+                        </button>
+                      )}
+
+                      {/* Hard delete — always available */}
                       <button
                         onClick={() => setDeleteTarget(student)}
+                        title="Excluir permanentemente"
                         className="inline-flex items-center justify-center rounded-md p-1.5 hover:bg-destructive/10 transition-colors"
                       >
                         <Trash2 className="w-4 h-4 text-destructive" />
                       </button>
+
                     </div>
                   </TableCell>
                 </TableRow>
@@ -257,53 +372,113 @@ export function StudentTable({
         </div>
       )}
 
+      {/* Pagination */}
+      {filtered.length > PAGE_SIZE && (
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-xs text-muted-foreground">
+            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} de {filtered.length} aluno{filtered.length !== 1 ? "s" : ""}
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setPage((p) => Math.max(0, p - 1))}
+              disabled={page === 0}
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Anterior
+            </button>
+            <span className="text-xs text-muted-foreground">{page + 1} / {totalPages}</span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+              disabled={page >= totalPages - 1}
+              className="rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              Próxima
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Footer count */}
-      {students.length > 0 && (
+      {students.length > 0 && filtered.length <= PAGE_SIZE && (
         <p className="text-xs text-muted-foreground">
-          {filtered.length} de {students.length} aluno
-          {students.length !== 1 ? "s" : ""}
+          {filtered.length} de {students.length} aluno{students.length !== 1 ? "s" : ""}
         </p>
       )}
 
-      {/* Delete confirmation dialog */}
-      <Dialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
+      {/* ── Dialogs ── */}
+
+      {/* Deactivate confirmation */}
+      <Dialog open={!!deactivateTarget} onOpenChange={(open) => !open && setDeactivateTarget(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Excluir Aluno</DialogTitle>
+            <DialogTitle>Desativar Aluno</DialogTitle>
             <DialogDescription>
-              Tem certeza que deseja excluir{" "}
-              <strong>{deleteTarget?.name}</strong>? Esta ação não pode ser
-              desfeita.
+              <strong>{deactivateTarget?.name}</strong> será movido para a lista de ex-alunos. O histórico de presença e pagamentos é preservado. Você pode reativá-lo a qualquer momento.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
+            <Button variant="outline" onClick={() => setDeactivateTarget(null)} disabled={deactivating}>Cancelar</Button>
             <Button
-              variant="outline"
-              onClick={() => setDeleteTarget(null)}
-              disabled={deleting}
+              variant="default"
+              className="bg-amber-500 hover:bg-amber-600 text-white"
+              onClick={handleDeactivate}
+              disabled={deactivating}
             >
-              Cancelar
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={deleting}
-            >
-              {deleting ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Excluindo...
-                </>
-              ) : (
-                "Excluir"
-              )}
+              {deactivating
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Desativando...</>
+                : <><UserX className="w-4 h-4 mr-2" />Desativar</>
+              }
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Reactivate confirmation */}
+      <Dialog open={!!reactivateTarget} onOpenChange={(open) => !open && setReactivateTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reativar Aluno</DialogTitle>
+            <DialogDescription>
+              <strong>{reactivateTarget?.name}</strong> voltará para a lista de alunos ativos e ficará disponível para registro de presença.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setReactivateTarget(null)} disabled={reactivating}>Cancelar</Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              onClick={handleReactivate}
+              disabled={reactivating}
+            >
+              {reactivating
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Reativando...</>
+                : <><UserCheck className="w-4 h-4 mr-2" />Reativar</>
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation */}
+      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Excluir Aluno Permanentemente</DialogTitle>
+            <DialogDescription>
+              Tem certeza que deseja excluir <strong>{deleteTarget?.name}</strong>? Todo o histórico será perdido. Esta ação não pode ser desfeita. Se o aluno saiu da escola, use <strong>Desativar</strong> para preservar o histórico.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)} disabled={deleting}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Excluindo...</>
+                : "Excluir permanentemente"
+              }
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
 }

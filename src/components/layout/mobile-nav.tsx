@@ -37,11 +37,14 @@ export function MobileNav() {
         <span className="sr-only">Menu</span>
       </SheetTrigger>
       <SheetContent side="left" className="w-64 p-0">
-        <SheetHeader className="px-6 h-16 flex flex-row items-center gap-3 border-b">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary">
-            <Trophy className="w-4 h-4 text-primary-foreground" />
+        <SheetHeader className="px-6 h-16 flex flex-row items-center gap-3 border-b border-white/5">
+          <div className="relative">
+            <div className="absolute inset-0 bg-primary rounded-xl blur-md opacity-50" />
+            <div className="relative flex items-center justify-center w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-400 to-green-600 shadow-lg">
+              <Trophy className="w-4 h-4 text-white" />
+            </div>
           </div>
-          <SheetTitle className="text-base font-semibold tracking-tight">
+          <SheetTitle className="text-base font-black tracking-tight">
             FutSimples
           </SheetTitle>
         </SheetHeader>
@@ -55,13 +58,18 @@ export function MobileNav() {
                 href={item.href}
                 onClick={() => setOpen(false)}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all",
                   isActive
-                    ? "bg-accent text-primary"
-                    : "text-foreground/70 hover:text-foreground hover:bg-accent/50"
+                    ? "bg-primary/10 text-white border border-primary/20"
+                    : "text-foreground/60 hover:text-foreground hover:bg-white/5 border border-transparent"
                 )}
               >
-                <item.icon className="w-5 h-5 shrink-0" />
+                <div className={cn(
+                  "flex items-center justify-center w-7 h-7 rounded-lg shrink-0",
+                  isActive ? "bg-primary shadow-md shadow-primary/50" : "bg-white/5"
+                )}>
+                  <item.icon className={cn("w-4 h-4", isActive ? "text-white" : "text-foreground/50")} />
+                </div>
                 {item.label}
               </Link>
             );

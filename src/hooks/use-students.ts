@@ -41,6 +41,10 @@ export function useStudents(options: UseStudentsOptions = {}) {
     return update(id, { active: false });
   }
 
+  async function reactivateStudent(id: string) {
+    return update(id, { active: true });
+  }
+
   async function deleteStudent(id: string) {
     return remove(id);
   }
@@ -52,6 +56,7 @@ export function useStudents(options: UseStudentsOptions = {}) {
     createStudent,
     updateStudent,
     deactivateStudent,
+    reactivateStudent,
     deleteStudent,
   };
 }

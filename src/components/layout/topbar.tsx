@@ -33,23 +33,26 @@ export function Topbar() {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 lg:px-8 border-b border-border bg-card/80 backdrop-blur-sm">
+    <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 lg:px-8 border-b border-white/5 bg-[oklch(0.09_0.015_260)]/90 backdrop-blur-xl">
       <div className="flex items-center gap-3">
         <MobileNav />
       </div>
 
       <DropdownMenu>
-        <DropdownMenuTrigger className="flex items-center gap-3 px-2 py-1.5 rounded-lg hover:bg-accent transition-colors outline-none">
-          <Avatar className="w-8 h-8">
-            <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">
-              {initials}
-            </AvatarFallback>
-          </Avatar>
+        <DropdownMenuTrigger className="flex items-center gap-3 px-2 py-1.5 rounded-xl hover:bg-white/5 transition-colors outline-none border border-transparent hover:border-white/10">
+          <div className="relative">
+            <div className="absolute inset-0 bg-primary rounded-full blur-sm opacity-40" />
+            <Avatar className="relative w-8 h-8">
+              <AvatarFallback className="bg-primary/20 text-primary text-xs font-bold border border-primary/30">
+                {initials}
+              </AvatarFallback>
+            </Avatar>
+          </div>
           <div className="hidden sm:flex flex-col items-start">
-            <span className="text-sm font-medium text-foreground">
+            <span className="text-sm font-semibold text-foreground">
               {displayName}
             </span>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-xs text-primary/70 font-medium">
               {displayRole}
             </span>
           </div>

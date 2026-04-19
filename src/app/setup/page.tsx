@@ -76,22 +76,25 @@ export default function SetupPage() {
     setErrorMsg("");
 
     try {
-      // 1. Create school
-      addLog("Criando escola...");
-      const schoolRef = await addDoc(collection(db, "schools"), {
-        name: schoolName.trim(),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      updateLastLog("done");
-
-      // 2. Create auth user
+      // 1. Create auth user FIRST — Firestore rules require request.auth != null
+      //    for every write, so we must be authenticated before touching Firestore.
       addLog("Criando usuário admin...");
       const cred = await createUserWithEmailAndPassword(
         auth,
         adminEmail.trim(),
         adminPassword
       );
+      updateLastLog("done");
+
+      // 2. Create school (user is now authenticated)
+      addLog("Criando escola...");
+      const schoolRef = await addDoc(collection(db, "schools"), {
+        name: schoolName.trim(),
+        subscriptionStatus: "trial",
+        trialStartedAt: serverTimestamp(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
       updateLastLog("done");
 
       // 3. Create user document
@@ -118,6 +121,17 @@ export default function SetupPage() {
         });
       }
       updateLastLog("done");
+
+      // 5. Send welcome email (fire-and-forget — don't block setup on email failure)
+      fetch("/api/email/welcome", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: adminEmail.trim(),
+          adminName: adminName.trim(),
+          schoolName: schoolName.trim(),
+        }),
+      }).catch(() => { /* non-critical */ });
 
       setStep("done");
     } catch (err: unknown) {

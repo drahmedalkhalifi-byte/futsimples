@@ -12,8 +12,20 @@ export interface School {
   id: string;
   name: string;
   logo?: string;
+  pixKey?: string;
   createdAt: Date;
   updatedAt: Date;
+}
+
+export interface StudentMedicalInfo {
+  bloodType?: string;
+  allergies?: string;
+  medications?: string;
+  specialConditions?: string;
+  healthInsurance?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  parentAuthorization?: boolean;
 }
 
 export interface User {
@@ -43,6 +55,8 @@ export interface Student {
   email: string;
   active: boolean;
   documents?: StudentDocument[];
+  medicalInfo?: StudentMedicalInfo;
+  portalToken?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -92,6 +106,20 @@ export interface Attendance {
   coachId: string;
   coachName: string;
   records: AttendanceRecord[];
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Championship {
+  id: string;
+  schoolId: string;
+  name: string;
+  organizer?: string;       // Ex: "Liga Municipal", "Federação"
+  startDate: Date;
+  endDate?: Date;
+  location: string;
+  categories: StudentCategory[];  // Which subs participate
+  notes?: string;
   createdAt: Date;
   updatedAt: Date;
 }

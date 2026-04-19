@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { ClipboardCheck, Loader2, CheckCircle2, XCircle, History, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  ClipboardCheck, Loader2, CheckCircle2, XCircle,
+  History, ChevronDown, ChevronUp, Search,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -29,26 +32,39 @@ const categories: StudentCategory[] = [
   "babyfoot","sub6","sub7","sub8","sub9","sub10","sub11","sub12","sub13","sub14","sub15",
 ];
 
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
+function toDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) return value;
+  if (typeof value === "object" && value !== null && "toDate" in value)
+    return (value as { toDate: () => Date }).toDate();
+  if (typeof value === "string") return new Date(value);
+  return null;
+}
+
 function formatDate(value: unknown): string {
   if (!value) return "—";
-  const d =
-    value instanceof Date
-      ? value
-      : typeof value === "object" && value !== null && "toDate" in value
-      ? (value as { toDate: () => Date }).toDate()
-      : new Date(value as string);
+  const d = toDate(value);
+  if (!d) return "—";
   return d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", year: "numeric" });
 }
 
-// ─── Attendance history card ──────────────────────────────────────────────────
+function entryMonth(entry: AttendanceEntry): string {
+  const d = toDate(entry.date);
+  if (!d) return "";
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
+// ─── HistoryCard ──────────────────────────────────────────────────────────────
+
 function HistoryCard({ entry }: { entry: AttendanceEntry }) {
   const [expanded, setExpanded] = useState(false);
   const present = entry.records.filter((r) => r.present);
-  const absent = entry.records.filter((r) => !r.present);
+  const absent  = entry.records.filter((r) => !r.present);
 
   return (
     <div className="rounded-xl border border-border/50 bg-card overflow-hidden">
-      {/* Header */}
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
@@ -66,7 +82,7 @@ function HistoryCard({ entry }: { entry: AttendanceEntry }) {
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 border border-emerald-100 rounded-full px-2 py-0.5">
             {present.length} presentes
           </span>
@@ -77,41 +93,36 @@ function HistoryCard({ entry }: { entry: AttendanceEntry }) {
         </div>
       </button>
 
-      {/* Expandable detail */}
       {expanded && (
         <div className="border-t border-border/40 px-4 pb-3 pt-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {/* Present */}
             <div>
               <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wide mb-2">Presentes ({present.length})</p>
-              {present.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Nenhum</p>
-              ) : (
-                <ul className="space-y-1">
-                  {present.map((r) => (
-                    <li key={r.studentId} className="flex items-center gap-1.5 text-sm">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                      {r.studentName}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {present.length === 0
+                ? <p className="text-xs text-muted-foreground">Nenhum</p>
+                : <ul className="space-y-1">
+                    {present.map((r) => (
+                      <li key={r.studentId} className="flex items-center gap-1.5 text-sm">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                        {r.studentName}
+                      </li>
+                    ))}
+                  </ul>
+              }
             </div>
-            {/* Absent */}
             <div>
               <p className="text-xs font-semibold text-red-600 uppercase tracking-wide mb-2">Ausentes ({absent.length})</p>
-              {absent.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Nenhum</p>
-              ) : (
-                <ul className="space-y-1">
-                  {absent.map((r) => (
-                    <li key={r.studentId} className="flex items-center gap-1.5 text-sm">
-                      <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
-                      {r.studentName}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              {absent.length === 0
+                ? <p className="text-xs text-muted-foreground">Nenhum</p>
+                : <ul className="space-y-1">
+                    {absent.map((r) => (
+                      <li key={r.studentId} className="flex items-center gap-1.5 text-sm">
+                        <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                        {r.studentName}
+                      </li>
+                    ))}
+                  </ul>
+              }
             </div>
           </div>
         </div>
@@ -121,25 +132,50 @@ function HistoryCard({ entry }: { entry: AttendanceEntry }) {
 }
 
 // ─── Main page ────────────────────────────────────────────────────────────────
+
 export default function PresencaPage() {
   const { saveAttendance, history, loadingHistory } = useAttendance();
   const [tab, setTab] = useState<"registrar" | "historico">("registrar");
+
+  // ── Registrar tab state ───────────────────────────────────────────────────
   const [selectedCategory, setSelectedCategory] = useState<StudentCategory>("sub9");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [attendance, setAttendance] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
 
+  // ── Histórico tab filter state ────────────────────────────────────────────
+  const defaultMonth = (() => {
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`;
+  })();
+  const [historyMonth, setHistoryMonth] = useState(defaultMonth);
+  const [historyCategory, setHistoryCategory] = useState<string>("all");
+
   const { students, loading } = useStudents({ activeOnly: true, category: selectedCategory });
 
+  // ── Filtered history ──────────────────────────────────────────────────────
+  const filteredHistory = history
+    .filter((entry) => {
+      if (historyCategory !== "all" && entry.category !== historyCategory) return false;
+      if (historyMonth && entryMonth(entry) !== historyMonth) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const da = toDate(a.date)?.getTime() ?? 0;
+      const db = toDate(b.date)?.getTime() ?? 0;
+      return db - da; // newest first
+    });
+
+  // ── Registrar helpers ─────────────────────────────────────────────────────
   function markAll(present: boolean) {
     const next: Record<string, boolean> = {};
     students.forEach((s) => (next[s.id] = present));
     setAttendance(next);
   }
 
-  const presentCount = students.filter((s) => attendance[s.id] === true).length;
-  const absentCount = students.filter((s) => attendance[s.id] === false).length;
-  const markedCount = presentCount + absentCount;
+  const presentCount  = students.filter((s) => attendance[s.id] === true).length;
+  const absentCount   = students.filter((s) => attendance[s.id] === false).length;
+  const markedCount   = presentCount + absentCount;
   const unmarkedCount = students.length - markedCount;
 
   async function handleSave() {
@@ -154,7 +190,9 @@ export default function PresencaPage() {
         present: attendance[s.id] ?? false,
       }));
       await saveAttendance({ date: new Date(date + "T12:00:00"), category: selectedCategory, records });
-      const unmarkedMsg = unmarkedCount > 0 ? ` (${unmarkedCount} não marcado${unmarkedCount !== 1 ? "s" : ""} salvo${unmarkedCount !== 1 ? "s" : ""} como ausente)` : "";
+      const unmarkedMsg = unmarkedCount > 0
+        ? ` (${unmarkedCount} não marcado${unmarkedCount !== 1 ? "s" : ""} salvo${unmarkedCount !== 1 ? "s" : ""} como ausente)`
+        : "";
       toast.success(`Presença salva! ${presentCount} presente${presentCount !== 1 ? "s" : ""}, ${absentCount} ausente${absentCount !== 1 ? "s" : ""}.${unmarkedMsg}`);
       setAttendance({});
     } catch (err) {
@@ -166,6 +204,7 @@ export default function PresencaPage() {
     }
   }
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -200,7 +239,6 @@ export default function PresencaPage() {
       {/* ── TAB: REGISTRAR ── */}
       {tab === "registrar" && (
         <>
-          {/* Controls */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="date">Data do treino</Label>
@@ -261,7 +299,7 @@ export default function PresencaPage() {
                   <TableBody>
                     {students.map((student) => {
                       const isPresent = attendance[student.id];
-                      const isMarked = student.id in attendance;
+                      const isMarked  = student.id in attendance;
                       return (
                         <TableRow key={student.id}>
                           <TableCell className="font-medium">{student.name}</TableCell>
@@ -308,13 +346,57 @@ export default function PresencaPage() {
 
       {/* ── TAB: HISTÓRICO ── */}
       {tab === "historico" && (
-        <div className="space-y-3">
+        <div className="space-y-4">
+
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-3 p-4 rounded-xl border border-border/50 bg-card">
+            <div className="space-y-1.5 flex-1 min-w-0">
+              <Label htmlFor="histMonth">Mês</Label>
+              <Input
+                id="histMonth"
+                type="month"
+                value={historyMonth}
+                onChange={(e) => setHistoryMonth(e.target.value)}
+                className="w-full sm:w-44"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Categoria</Label>
+              <Select
+                value={historyCategory}
+                onValueChange={(val) => { if (val) setHistoryCategory(val); }}
+              >
+                <SelectTrigger className="w-full sm:w-36">
+                  <span className="text-sm">{historyCategory === "all" ? "Todas" : historyCategory}</span>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas</SelectItem>
+                  {categories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Result count */}
+          {!loadingHistory && history.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {filteredHistory.length} treino{filteredHistory.length !== 1 ? "s" : ""} encontrado{filteredHistory.length !== 1 ? "s" : ""}
+              {historyCategory !== "all" && ` em ${historyCategory}`}
+              {historyMonth && (() => {
+                const [y, m] = historyMonth.split("-");
+                const label = new Date(Number(y), Number(m) - 1, 1).toLocaleString("pt-BR", { month: "long", year: "numeric" });
+                return ` — ${label}`;
+              })()}
+            </p>
+          )}
+
           {loadingHistory && (
             <div className="flex items-center gap-2 py-8">
               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
               <span className="text-sm text-muted-foreground">Carregando histórico...</span>
             </div>
           )}
+
           {!loadingHistory && history.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 px-4 rounded-xl border border-dashed border-border">
               <div className="flex items-center justify-center w-14 h-14 rounded-full bg-primary/10 mb-4">
@@ -326,9 +408,27 @@ export default function PresencaPage() {
               </p>
             </div>
           )}
-          {!loadingHistory && history.map((entry) => (
-            <HistoryCard key={entry.id} entry={entry} />
-          ))}
+
+          {!loadingHistory && history.length > 0 && filteredHistory.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-12 text-center gap-2">
+              <Search className="w-8 h-8 text-muted-foreground/40" />
+              <p className="text-sm text-muted-foreground">Nenhum treino encontrado com esses filtros.</p>
+              <button
+                onClick={() => { setHistoryMonth(defaultMonth); setHistoryCategory("all"); }}
+                className="text-sm text-primary hover:underline"
+              >
+                Limpar filtros
+              </button>
+            </div>
+          )}
+
+          {/* History cards */}
+          <div className="space-y-3">
+            {filteredHistory.map((entry) => (
+              <HistoryCard key={entry.id} entry={entry} />
+            ))}
+          </div>
+
         </div>
       )}
     </div>

@@ -1,0 +1,17 @@
+[build]
+  command = "npm run build"
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Scheduled function: send trial reminder emails daily at 10am UTC
+[functions]
+  directory = "netlify/functions"
+
+[[edge_functions]]
+  # No edge functions — placeholder if needed later
+
+# Cron job: daily trial reminder check (9:00 UTC = 6:00 BRT)
+[functions."trial-reminder-cron"]
+  schedule = "0 9 * * *"

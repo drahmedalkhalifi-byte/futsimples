@@ -1,23 +1,21 @@
 "use client";
 
 import { useState } from "react";
-import { Printer, Loader2, FileText, Download } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from "@/components/ui/select";
+  Printer, Loader2, TrendingUp, TrendingDown,
+  Minus, Users, CheckCircle2, Clock, Receipt,
+  ChevronLeft, ChevronRight, AlertCircle,
+} from "lucide-react";
 import { useStudents } from "@/hooks/use-students";
 import { usePayments } from "@/hooks/use-payments";
 import { useExpenses } from "@/hooks/use-expenses";
 import { useAuth } from "@/contexts/auth-context";
 
+// ─── helpers ─────────────────────────────────────────────────────────────────
+
 const MONTH_NAMES = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
 ];
 
 const PAYMENT_TYPE_LABELS: Record<string, string> = {
@@ -27,299 +25,458 @@ const PAYMENT_TYPE_LABELS: Record<string, string> = {
   outros: "Outros",
 };
 
-function formatCurrency(value: number) {
+function fmt(value: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 }
 
-function formatDate(value: unknown): string {
+function fmtDate(value: unknown): string {
   if (!value) return "—";
   if (value instanceof Date) return value.toLocaleDateString("pt-BR");
-  if (typeof value === "object" && value !== null && "toDate" in value) {
+  if (typeof value === "object" && value !== null && "toDate" in value)
     return (value as { toDate: () => Date }).toDate().toLocaleDateString("pt-BR");
-  }
-  if (typeof value === "string") {
-    const [y, m, d] = value.split("-");
-    return `${d}/${m}/${y}`;
-  }
+  if (typeof value === "string") { const [y, m, d] = value.split("-"); return `${d}/${m}/${y}`; }
   return "—";
 }
 
+// ─── sub-components ───────────────────────────────────────────────────────────
+
+function SectionHeader({ icon, title, count, color = "text-foreground" }: {
+  icon: React.ReactNode; title: string; count?: number; color?: string;
+}) {
+  return (
+    <div className="flex items-center gap-2 mb-3">
+      <span className={`${color}`}>{icon}</span>
+      <h3 className={`text-base font-semibold ${color}`}>{title}</h3>
+      {count !== undefined && (
+        <span className="ml-auto text-xs font-semibold text-muted-foreground bg-muted rounded-full px-2.5 py-0.5">
+          {count}
+        </span>
+      )}
+    </div>
+  );
+}
+
+function EmptyRow({ cols, text }: { cols: number; text: string }) {
+  return (
+    <tr>
+      <td colSpan={cols} className="px-4 py-5 text-center text-sm text-muted-foreground">{text}</td>
+    </tr>
+  );
+}
+
+function TableWrapper({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-border/50 overflow-hidden print:border print:rounded-none">
+      <table className="w-full text-sm">{children}</table>
+    </div>
+  );
+}
+
+function Th({ children, right }: { children: React.ReactNode; right?: boolean }) {
+  return (
+    <th className={`px-4 py-2.5 font-medium text-xs uppercase tracking-wide text-muted-foreground bg-muted/40 ${right ? "text-right" : "text-left"}`}>
+      {children}
+    </th>
+  );
+}
+
+function Td({ children, right, muted, bold, green, red, amber }: {
+  children: React.ReactNode; right?: boolean; muted?: boolean; bold?: boolean;
+  green?: boolean; red?: boolean; amber?: boolean;
+}) {
+  return (
+    <td className={`px-4 py-2.5 ${right ? "text-right" : ""} ${muted ? "text-muted-foreground" : ""} ${bold ? "font-semibold" : ""} ${green ? "text-emerald-500 font-semibold" : ""} ${red ? "text-red-400 font-semibold" : ""} ${amber ? "text-amber-400 font-semibold" : ""}`}>
+      {children}
+    </td>
+  );
+}
+
+// ─── Main page ────────────────────────────────────────────────────────────────
+
 export default function RelatorioPage() {
   const now = new Date();
-  const [selectedYear, setSelectedYear] = useState(now.getFullYear());
-  const [selectedMonthNum, setSelectedMonthNum] = useState(now.getMonth() + 1); // 1-12
+  const [selectedYear,     setSelectedYear]     = useState(now.getFullYear());
+  const [selectedMonthNum, setSelectedMonthNum] = useState(now.getMonth() + 1);
   const selectedMonth = `${selectedYear}-${String(selectedMonthNum).padStart(2, "0")}`;
 
-  // Build year options: from 2024 to 2030
-  const yearOptions: number[] = [];
-  for (let y = 2030; y >= 2024; y--) yearOptions.push(y);
+  function prevMonth() {
+    if (selectedMonthNum === 1) { setSelectedMonthNum(12); setSelectedYear((y) => y - 1); }
+    else setSelectedMonthNum((m) => m - 1);
+  }
+  function nextMonth() {
+    if (selectedMonthNum === 12) { setSelectedMonthNum(1); setSelectedYear((y) => y + 1); }
+    else setSelectedMonthNum((m) => m + 1);
+  }
 
   const { user } = useAuth();
-  const { students, loading: loadingStudents } = useStudents({ activeOnly: true });
-  const { payments, loading: loadingPayments } = usePayments();
-  const { expenses, loading: loadingExpenses } = useExpenses();
-
+  const { students,  loading: loadingStudents  } = useStudents({ activeOnly: true });
+  const { payments,  loading: loadingPayments  } = usePayments();
+  const { expenses,  loading: loadingExpenses  } = useExpenses();
   const loading = loadingStudents || loadingPayments || loadingExpenses;
 
-  // Filter by selected month
-  const monthPayments = payments.filter((p) => p.month === selectedMonth);
-  const paidPayments = monthPayments.filter((p) => p.status === "pago");
-  const pendingPayments = monthPayments.filter((p) => p.status === "pendente");
+  // ── Derived data ────────────────────────────────────────────────────────────
 
   const [year, mon] = selectedMonth.split("-").map(Number);
+
+  const monthPayments   = payments.filter((p) => p.month === selectedMonth);
+  const paidPayments    = monthPayments.filter((p) => p.status === "pago");
+  const pendingPayments = monthPayments.filter((p) => p.status === "pendente");
+
   const monthExpenses = expenses.filter((e) => {
     if (e.type === "recurring") return true;
-    const d = e.date instanceof Date ? e.date : (e.date as { toDate?: () => Date })?.toDate?.() ?? new Date(e.date as string);
+    const d = e.date instanceof Date
+      ? e.date
+      : (e.date as { toDate?: () => Date })?.toDate?.() ?? new Date(e.date as string);
     return d.getFullYear() === year && d.getMonth() + 1 === mon;
   });
 
-  const totalReceita = paidPayments.reduce((s, p) => s + (p.amount ?? 0), 0);
-  const totalDespesas = monthExpenses.reduce((s, e) => s + (e.amount ?? 0), 0);
-  const resultado = totalReceita - totalDespesas;
+  const totalReceita   = paidPayments.reduce((s, p) => s + (p.amount ?? 0), 0);
+  const totalDespesas  = monthExpenses.reduce((s, e) => s + (e.amount ?? 0), 0);
+  const totalPendente  = pendingPayments.reduce((s, p) => s + (p.amount ?? 0), 0);
+  const resultado      = totalReceita - totalDespesas;
+  const totalFaturavel = totalReceita + totalPendente;
+  const inadimplencia  = totalFaturavel > 0 ? (totalPendente / totalFaturavel) * 100 : 0;
 
-  // Students by category
+  // Students by category (sorted)
   const categoryCounts: Record<string, number> = {};
-  students.forEach((s) => {
-    categoryCounts[s.category] = (categoryCounts[s.category] ?? 0) + 1;
-  });
-  const categoryEntries = Object.entries(categoryCounts).filter(([, n]) => n > 0);
+  students.forEach((s) => { categoryCounts[s.category] = (categoryCounts[s.category] ?? 0) + 1; });
+  const categoryEntries = Object.entries(categoryCounts)
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => a[0].localeCompare(b[0]));
 
   const monthLabel = new Date(year, mon - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
+  // ── Render ──────────────────────────────────────────────────────────────────
+
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 print:hidden">
+
+      {/* ── Header ── */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 print:hidden">
         <div>
           <h2 className="text-2xl font-bold tracking-tight text-foreground">Relatório Mensal</h2>
-          <p className="text-sm text-muted-foreground mt-1">Resumo financeiro e de alunos do mês</p>
+          <p className="text-sm text-muted-foreground mt-1">Resumo financeiro e operacional da escolinha</p>
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
-          <div className="space-y-1">
-            <Label className="text-xs">Mês</Label>
-            <Select
-              value={String(selectedMonthNum)}
-              onValueChange={(val) => { if (val) setSelectedMonthNum(Number(val)); }}
-            >
-              <SelectTrigger className="w-36">
-                <span className="text-sm">{MONTH_NAMES[selectedMonthNum - 1]}</span>
-              </SelectTrigger>
-              <SelectContent>
-                {MONTH_NAMES.map((name, i) => (
-                  <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Ano</Label>
-            <Select
-              value={String(selectedYear)}
-              onValueChange={(val) => { if (val) setSelectedYear(Number(val)); }}
-            >
-              <SelectTrigger className="w-24">
-                <span className="text-sm">{selectedYear}</span>
-              </SelectTrigger>
-              <SelectContent>
-                {yearOptions.map((y) => (
-                  <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-2 self-end">
-            <Button variant="outline" onClick={() => window.print()} className="gap-2">
-              <Printer className="w-4 h-4" />
-              Imprimir
-            </Button>
-            <Button onClick={() => {
-              const style = document.createElement("style");
-              style.innerHTML = `@media print { body * { visibility: hidden; } #report-content, #report-content * { visibility: visible; } #report-content { position: absolute; top: 0; left: 0; width: 100%; padding: 20px; } }`;
-              document.head.appendChild(style);
-              window.print();
-              setTimeout(() => document.head.removeChild(style), 1000);
-            }} className="gap-2">
-              <Download className="w-4 h-4" />
-              Salvar PDF
-            </Button>
-          </div>
+        <button
+          onClick={() => window.print()}
+          className="inline-flex items-center gap-2 self-start rounded-lg border border-border px-4 py-2 text-sm font-medium hover:bg-accent transition-colors"
+        >
+          <Printer className="w-4 h-4" />
+          Imprimir / Salvar PDF
+        </button>
+      </div>
+
+      {/* ── Month navigator ── */}
+      <div className="flex items-center justify-between gap-3 rounded-xl border border-border/50 bg-card px-4 py-3 print:hidden">
+        <button
+          onClick={prevMonth}
+          className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-accent transition-colors"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <div className="text-center">
+          <p className="text-lg font-bold text-foreground capitalize">{MONTH_NAMES[selectedMonthNum - 1]}</p>
+          <p className="text-xs text-muted-foreground">{selectedYear}</p>
         </div>
+        <button
+          onClick={nextMonth}
+          className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-accent transition-colors"
+          disabled={selectedYear === now.getFullYear() && selectedMonthNum === now.getMonth() + 1}
+        >
+          <ChevronRight className="w-4 h-4 disabled:opacity-30" />
+        </button>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-24">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-          <span className="ml-2 text-sm text-muted-foreground">Carregando...</span>
+          <span className="ml-2 text-sm text-muted-foreground">Carregando relatório...</span>
         </div>
       ) : (
-        <div className="space-y-6 print:space-y-4" id="report-content">
+
+        <div className="space-y-8 print:space-y-6" id="report-content">
+
           {/* Print header */}
-          <div className="hidden print:block text-center border-b pb-4 mb-4">
-            <h1 className="text-xl font-bold">Relatório Mensal — {monthLabel}</h1>
-            <p className="text-sm text-gray-500">Gerado em {new Date().toLocaleDateString("pt-BR")}</p>
+          <div className="hidden print:flex print:flex-col print:items-center print:text-center border-b pb-4 mb-2">
+            <h1 className="text-2xl font-bold">Relatório Mensal</h1>
+            <p className="text-base text-gray-600 capitalize">{monthLabel}</p>
+            <p className="text-xs text-gray-400 mt-1">Gerado em {new Date().toLocaleDateString("pt-BR")} · FutSimples</p>
           </div>
 
-          {/* Financial summary */}
+          {/* ── 1. FINANCIAL OVERVIEW ── */}
           <section>
-            <h3 className="text-base font-semibold text-foreground mb-3 flex items-center gap-2">
-              <FileText className="w-4 h-4 print:hidden" />
-              Resumo Financeiro — {monthLabel}
-            </h3>
-            <div className="grid grid-cols-3 gap-4 print:gap-2">
-              <div className="rounded-lg border border-border/50 bg-card p-4 print:border print:rounded">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Receita</p>
-                <p className="text-xl font-bold text-green-600 mt-1">{formatCurrency(totalReceita)}</p>
-                <p className="text-xs text-muted-foreground mt-1">{paidPayments.length} pagamento{paidPayments.length !== 1 ? "s" : ""} recebido{paidPayments.length !== 1 ? "s" : ""}</p>
+            <SectionHeader
+              icon={<TrendingUp className="w-4 h-4" />}
+              title={`Financeiro — ${monthLabel}`}
+            />
+
+            {/* 3 metric cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+              {/* Receita */}
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-5">
+                <p className="text-xs uppercase tracking-wide text-emerald-400/80 font-medium mb-1">Receita recebida</p>
+                <p className="text-2xl font-black text-emerald-400 tabular-nums">{fmt(totalReceita)}</p>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  {paidPayments.length} pagamento{paidPayments.length !== 1 ? "s" : ""} confirmado{paidPayments.length !== 1 ? "s" : ""}
+                </p>
               </div>
-              <div className="rounded-lg border border-border/50 bg-card p-4 print:border print:rounded">
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Despesas</p>
-                <p className="text-xl font-bold text-red-500 mt-1">{formatCurrency(totalDespesas)}</p>
-                <p className="text-xs text-muted-foreground mt-1">{monthExpenses.length} despesa{monthExpenses.length !== 1 ? "s" : ""}</p>
+
+              {/* Despesas */}
+              <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-5">
+                <p className="text-xs uppercase tracking-wide text-red-400/80 font-medium mb-1">Despesas</p>
+                <p className="text-2xl font-black text-red-400 tabular-nums">{fmt(totalDespesas)}</p>
+                <p className="text-xs text-muted-foreground mt-1.5">
+                  {monthExpenses.length} despesa{monthExpenses.length !== 1 ? "s" : ""}
+                  {monthExpenses.some((e) => e.type === "recurring") ? " (incl. recorrentes)" : ""}
+                </p>
               </div>
-              <div className={`rounded-lg border p-4 print:border print:rounded ${resultado >= 0 ? "border-green-200/60 bg-green-50/50" : "border-destructive/30 bg-destructive/5"}`}>
-                <p className="text-xs text-muted-foreground uppercase tracking-wide">Resultado</p>
-                <p className={`text-xl font-bold mt-1 ${resultado >= 0 ? "text-green-600" : "text-red-500"}`}>{formatCurrency(resultado)}</p>
-                <p className="text-xs text-muted-foreground mt-1">{resultado >= 0 ? "Superávit" : "Déficit"}</p>
+
+              {/* Resultado */}
+              <div className={`rounded-xl border p-5 ${
+                resultado > 0  ? "border-primary/30 bg-primary/5" :
+                resultado < 0  ? "border-destructive/30 bg-destructive/5" :
+                                 "border-border/50 bg-card"
+              }`}>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground font-medium mb-1">Resultado</p>
+                <p className={`text-2xl font-black tabular-nums ${
+                  resultado > 0 ? "text-primary" : resultado < 0 ? "text-destructive" : "text-foreground"
+                }`}>
+                  {fmt(resultado)}
+                </p>
+                <div className="flex items-center gap-1 mt-1.5">
+                  {resultado > 0
+                    ? <><TrendingUp  className="w-3.5 h-3.5 text-primary"      /><span className="text-xs text-primary">Superávit</span></>
+                    : resultado < 0
+                    ? <><TrendingDown className="w-3.5 h-3.5 text-destructive" /><span className="text-xs text-destructive">Déficit</span></>
+                    : <><Minus        className="w-3.5 h-3.5 text-muted-foreground" /><span className="text-xs text-muted-foreground">Neutro</span></>
+                  }
+                </div>
               </div>
             </div>
+
+            {/* Receita vs Despesas bar */}
+            {(totalReceita > 0 || totalDespesas > 0) && (
+              <div className="rounded-xl border border-border/50 bg-card p-4">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-xs font-medium text-muted-foreground">Receita vs Despesas</p>
+                  <p className="text-xs text-muted-foreground">
+                    {totalReceita > 0 && totalDespesas > 0
+                      ? `${Math.round((totalDespesas / totalReceita) * 100)}% de comprometimento`
+                      : ""}
+                  </p>
+                </div>
+                <div className="relative h-3 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className="absolute left-0 top-0 h-full rounded-full bg-emerald-500/70 transition-all"
+                    style={{ width: "100%" }}
+                  />
+                  {totalReceita > 0 && (
+                    <div
+                      className="absolute left-0 top-0 h-full rounded-full bg-red-500/70 transition-all"
+                      style={{ width: `${Math.min(100, (totalDespesas / totalReceita) * 100)}%` }}
+                    />
+                  )}
+                </div>
+                <div className="flex justify-between mt-1.5">
+                  <span className="text-[10px] text-emerald-400">Receita {fmt(totalReceita)}</span>
+                  <span className="text-[10px] text-red-400">Despesas {fmt(totalDespesas)}</span>
+                </div>
+              </div>
+            )}
           </section>
 
-          {/* Students summary */}
-          <section>
-            <h3 className="text-base font-semibold text-foreground mb-3">Alunos Ativos — {students.length} total</h3>
-            <div className="rounded-lg border border-border/50 overflow-hidden print:border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-muted/30 text-left">
-                    <th className="px-4 py-2 font-medium text-muted-foreground">Categoria</th>
-                    <th className="px-4 py-2 font-medium text-muted-foreground text-right">Alunos</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {categoryEntries.length === 0 ? (
-                    <tr><td colSpan={2} className="px-4 py-4 text-center text-muted-foreground">Nenhum aluno ativo</td></tr>
-                  ) : (
-                    categoryEntries.map(([cat, count]) => (
-                      <tr key={cat} className="border-t border-border/30">
-                        <td className="px-4 py-2 font-medium">{cat}</td>
-                        <td className="px-4 py-2 text-right">{count}</td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          {/* Paid payments */}
-          <section>
-            <h3 className="text-base font-semibold text-foreground mb-3">Pagamentos Recebidos — {paidPayments.length}</h3>
-            <div className="rounded-lg border border-border/50 overflow-hidden print:border">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-muted/30 text-left">
-                    <th className="px-4 py-2 font-medium text-muted-foreground">Aluno</th>
-                    <th className="px-4 py-2 font-medium text-muted-foreground">Tipo</th>
-                    <th className="px-4 py-2 font-medium text-muted-foreground text-right">Valor</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paidPayments.length === 0 ? (
-                    <tr><td colSpan={3} className="px-4 py-4 text-center text-muted-foreground">Nenhum pagamento recebido neste mês</td></tr>
-                  ) : (
-                    paidPayments.map((p) => (
-                      <tr key={p.id} className="border-t border-border/30">
-                        <td className="px-4 py-2 font-medium">{p.studentName}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{PAYMENT_TYPE_LABELS[p.type] ?? p.type}</td>
-                        <td className="px-4 py-2 text-right font-medium text-green-600">{formatCurrency(p.amount ?? 0)}</td>
-                      </tr>
-                    ))
-                  )}
-                  {paidPayments.length > 0 && (
-                    <tr className="border-t border-border bg-muted/20">
-                      <td colSpan={2} className="px-4 py-2 font-semibold">Total Recebido</td>
-                      <td className="px-4 py-2 text-right font-bold text-green-600">{formatCurrency(totalReceita)}</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </section>
-
-          {/* Pending payments */}
-          {pendingPayments.length > 0 && (
+          {/* ── 2. INADIMPLÊNCIA ── */}
+          {(monthPayments.length > 0) && (
             <section>
-              <h3 className="text-base font-semibold text-foreground mb-3">Pagamentos Pendentes — {pendingPayments.length}</h3>
-              <div className="rounded-lg border border-amber-200/60 bg-amber-50/30 overflow-hidden print:border">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-amber-50/50 text-left">
-                      <th className="px-4 py-2 font-medium text-muted-foreground">Aluno</th>
-                      <th className="px-4 py-2 font-medium text-muted-foreground">Tipo</th>
-                      <th className="px-4 py-2 font-medium text-muted-foreground hidden sm:table-cell">Vencimento</th>
-                      <th className="px-4 py-2 font-medium text-muted-foreground text-right">Valor</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {pendingPayments.map((p) => (
-                      <tr key={p.id} className="border-t border-amber-200/40">
-                        <td className="px-4 py-2 font-medium">{p.studentName}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{PAYMENT_TYPE_LABELS[p.type] ?? p.type}</td>
-                        <td className="px-4 py-2 text-muted-foreground hidden sm:table-cell">{formatDate(p.dueDate)}</td>
-                        <td className="px-4 py-2 text-right font-medium text-amber-600">{formatCurrency(p.amount ?? 0)}</td>
-                      </tr>
-                    ))}
-                    <tr className="border-t border-amber-200 bg-amber-50/50">
-                      <td colSpan={3} className="px-4 py-2 font-semibold">Total Pendente</td>
-                      <td className="px-4 py-2 text-right font-bold text-amber-600">
-                        {formatCurrency(pendingPayments.reduce((s, p) => s + (p.amount ?? 0), 0))}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+              <SectionHeader
+                icon={<AlertCircle className="w-4 h-4" />}
+                title="Inadimplência do Mês"
+                color={inadimplencia > 30 ? "text-red-400" : inadimplencia > 0 ? "text-amber-400" : "text-emerald-400"}
+              />
+              <div className={`rounded-xl border p-5 ${
+                inadimplencia > 30 ? "border-red-500/20 bg-red-500/5" :
+                inadimplencia > 0  ? "border-amber-500/20 bg-amber-500/5" :
+                                     "border-emerald-500/20 bg-emerald-500/5"
+              }`}>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
+                  <div>
+                    <p className="text-3xl font-black tabular-nums text-foreground">{inadimplencia.toFixed(0)}%</p>
+                    <p className="text-sm text-muted-foreground mt-0.5">taxa de inadimplência</p>
+                  </div>
+                  <div className="flex gap-6 text-sm">
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Pendente</p>
+                      <p className="font-bold text-amber-400 tabular-nums">{fmt(totalPendente)}</p>
+                      <p className="text-xs text-muted-foreground">{pendingPayments.length} aluno{pendingPayments.length !== 1 ? "s" : ""}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase tracking-wide">Total faturável</p>
+                      <p className="font-bold text-foreground tabular-nums">{fmt(totalFaturavel)}</p>
+                      <p className="text-xs text-muted-foreground">{monthPayments.length} lançamentos</p>
+                    </div>
+                  </div>
+                  {/* Progress bar */}
+                  <div className="flex-1 min-w-0">
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${inadimplencia > 30 ? "bg-red-500" : "bg-amber-400"}`}
+                        style={{ width: `${inadimplencia}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between mt-1">
+                      <span className="text-[10px] text-emerald-400">Recebido {fmt(totalReceita)}</span>
+                      <span className="text-[10px] text-amber-400">Pendente {fmt(totalPendente)}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
           )}
 
-          {/* Expenses */}
+          {/* ── 3. ALUNOS ── */}
           <section>
-            <h3 className="text-base font-semibold text-foreground mb-3">Despesas do Mês — {monthExpenses.length}</h3>
-            <div className="rounded-lg border border-border/50 overflow-hidden print:border">
-              <table className="w-full text-sm">
+            <SectionHeader
+              icon={<Users className="w-4 h-4 text-primary" />}
+              title="Alunos Ativos"
+              count={students.length}
+              color="text-primary"
+            />
+            <TableWrapper>
+              <thead>
+                <tr><Th>Categoria</Th><Th right>Alunos</Th></tr>
+              </thead>
+              <tbody>
+                {categoryEntries.length === 0
+                  ? <EmptyRow cols={2} text="Nenhum aluno ativo" />
+                  : categoryEntries.map(([cat, count]) => (
+                      <tr key={cat} className="border-t border-border/30">
+                        <Td bold>{cat}</Td>
+                        <Td right muted>{count}</Td>
+                      </tr>
+                    ))
+                }
+                {categoryEntries.length > 0 && (
+                  <tr className="border-t border-border/50 bg-muted/20">
+                    <Td bold>Total</Td>
+                    <Td right bold>{students.length}</Td>
+                  </tr>
+                )}
+              </tbody>
+            </TableWrapper>
+          </section>
+
+          {/* ── 4. PAGAMENTOS RECEBIDOS ── */}
+          <section>
+            <SectionHeader
+              icon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+              title="Pagamentos Recebidos"
+              count={paidPayments.length}
+              color="text-emerald-500"
+            />
+            <TableWrapper>
+              <thead>
+                <tr><Th>Aluno</Th><Th>Tipo</Th><Th right>Valor</Th></tr>
+              </thead>
+              <tbody>
+                {paidPayments.length === 0
+                  ? <EmptyRow cols={3} text="Nenhum pagamento recebido neste mês" />
+                  : paidPayments.map((p) => (
+                      <tr key={p.id} className="border-t border-border/30">
+                        <Td bold>{p.studentName}</Td>
+                        <Td muted>{PAYMENT_TYPE_LABELS[p.type] ?? p.type}</Td>
+                        <Td right green>{fmt(p.amount ?? 0)}</Td>
+                      </tr>
+                    ))
+                }
+                {paidPayments.length > 0 && (
+                  <tr className="border-t border-border/50 bg-emerald-500/5">
+                    <td colSpan={2} className="px-4 py-2.5 font-semibold text-sm">Total Recebido</td>
+                    <td className="px-4 py-2.5 text-right font-black text-emerald-400 text-sm tabular-nums">{fmt(totalReceita)}</td>
+                  </tr>
+                )}
+              </tbody>
+            </TableWrapper>
+          </section>
+
+          {/* ── 5. PENDENTES ── */}
+          {pendingPayments.length > 0 && (
+            <section>
+              <SectionHeader
+                icon={<Clock className="w-4 h-4 text-amber-400" />}
+                title="Pendentes / Inadimplentes"
+                count={pendingPayments.length}
+                color="text-amber-400"
+              />
+              <TableWrapper>
                 <thead>
-                  <tr className="bg-muted/30 text-left">
-                    <th className="px-4 py-2 font-medium text-muted-foreground">Descrição</th>
-                    <th className="px-4 py-2 font-medium text-muted-foreground">Tipo</th>
-                    <th className="px-4 py-2 font-medium text-muted-foreground text-right">Valor</th>
+                  <tr>
+                    <Th>Aluno</Th>
+                    <Th>Tipo</Th>
+                    <Th>Vencimento</Th>
+                    <Th right>Valor</Th>
                   </tr>
                 </thead>
                 <tbody>
-                  {monthExpenses.length === 0 ? (
-                    <tr><td colSpan={3} className="px-4 py-4 text-center text-muted-foreground">Nenhuma despesa neste mês</td></tr>
-                  ) : (
-                    monthExpenses.map((e) => (
+                  {pendingPayments.map((p) => (
+                    <tr key={p.id} className="border-t border-border/30">
+                      <Td bold>{p.studentName}</Td>
+                      <Td muted>{PAYMENT_TYPE_LABELS[p.type] ?? p.type}</Td>
+                      <Td muted>{fmtDate(p.dueDate)}</Td>
+                      <Td right amber>{fmt(p.amount ?? 0)}</Td>
+                    </tr>
+                  ))}
+                  <tr className="border-t border-border/50 bg-amber-500/5">
+                    <td colSpan={3} className="px-4 py-2.5 font-semibold text-sm">Total Pendente</td>
+                    <td className="px-4 py-2.5 text-right font-black text-amber-400 text-sm tabular-nums">{fmt(totalPendente)}</td>
+                  </tr>
+                </tbody>
+              </TableWrapper>
+            </section>
+          )}
+
+          {/* ── 6. DESPESAS ── */}
+          <section>
+            <SectionHeader
+              icon={<Receipt className="w-4 h-4 text-red-400" />}
+              title="Despesas do Mês"
+              count={monthExpenses.length}
+              color="text-red-400"
+            />
+            <TableWrapper>
+              <thead>
+                <tr><Th>Descrição</Th><Th>Tipo</Th><Th right>Valor</Th></tr>
+              </thead>
+              <tbody>
+                {monthExpenses.length === 0
+                  ? <EmptyRow cols={3} text="Nenhuma despesa neste mês" />
+                  : monthExpenses.map((e) => (
                       <tr key={e.id} className="border-t border-border/30">
-                        <td className="px-4 py-2 font-medium">{e.description}</td>
-                        <td className="px-4 py-2 text-muted-foreground">{e.type === "recurring" ? "Recorrente" : "Pontual"}</td>
-                        <td className="px-4 py-2 text-right font-medium text-red-500">{formatCurrency(e.amount ?? 0)}</td>
+                        <Td bold>{e.description}</Td>
+                        <Td muted>
+                          {e.type === "recurring"
+                            ? <span className="inline-flex items-center gap-1 text-xs bg-muted rounded px-1.5 py-0.5">Recorrente</span>
+                            : "Pontual"
+                          }
+                        </Td>
+                        <Td right red>{fmt(e.amount ?? 0)}</Td>
                       </tr>
                     ))
-                  )}
-                  {monthExpenses.length > 0 && (
-                    <tr className="border-t border-border bg-muted/20">
-                      <td colSpan={2} className="px-4 py-2 font-semibold">Total Despesas</td>
-                      <td className="px-4 py-2 text-right font-bold text-red-500">{formatCurrency(totalDespesas)}</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+                }
+                {monthExpenses.length > 0 && (
+                  <tr className="border-t border-border/50 bg-red-500/5">
+                    <td colSpan={2} className="px-4 py-2.5 font-semibold text-sm">Total Despesas</td>
+                    <td className="px-4 py-2.5 text-right font-black text-red-400 text-sm tabular-nums">{fmt(totalDespesas)}</td>
+                  </tr>
+                )}
+              </tbody>
+            </TableWrapper>
           </section>
 
           {/* Print footer */}
           <div className="hidden print:block text-center text-xs text-gray-400 pt-4 border-t mt-6">
-            Relatório gerado pelo FutSimples · {user?.name ?? ""}
+            FutSimples · {user?.name ?? ""} · Gerado em {new Date().toLocaleDateString("pt-BR")}
           </div>
+
         </div>
       )}
 
@@ -328,9 +485,12 @@ export default function RelatorioPage() {
         @media print {
           body * { visibility: hidden; }
           #report-content, #report-content * { visibility: visible; }
-          #report-content { position: absolute; top: 0; left: 0; width: 100%; padding: 20px; }
+          #report-content { position: absolute; top: 0; left: 0; width: 100%; padding: 24px; background: white; color: black; }
+          #report-content table { border-collapse: collapse; width: 100%; }
+          #report-content td, #report-content th { border: 1px solid #e5e7eb; padding: 6px 12px; }
         }
       `}</style>
+
     </div>
   );
 }

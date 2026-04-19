@@ -17,12 +17,16 @@ import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import type { User, UserRole } from "@/types";
 
+export type SubscriptionStatus = "trial" | "active" | "expired";
+
 interface AuthState {
   firebaseUser: FirebaseUser | null;
   user: User | null;
   schoolId: string | null;
   schoolName: string | null;
   role: UserRole | null;
+  subscriptionStatus: SubscriptionStatus | null;
+  trialDaysLeft: number | null;
   loading: boolean;
   error: string | null;
 }
@@ -43,6 +47,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     schoolId: null,
     schoolName: null,
     role: null,
+    subscriptionStatus: null,
+    trialDaysLeft: null,
     loading: true,
     error: null,
   });
@@ -56,9 +62,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (userDoc.exists()) {
               const userData = { id: userDoc.id, ...userDoc.data() } as User;
               let schoolName: string | null = null;
+              let subscriptionStatus: SubscriptionStatus = "trial";
+              let trialDaysLeft: number | null = null;
               try {
                 const schoolDoc = await getDoc(doc(db, "schools", userData.schoolId));
-                if (schoolDoc.exists()) schoolName = (schoolDoc.data().name as string) ?? null;
+                if (schoolDoc.exists()) {
+                  const sd = schoolDoc.data();
+                  schoolName = (sd.name as string) ?? null;
+
+                  const rawStatus = sd.subscriptionStatus as SubscriptionStatus | undefined;
+                  const trialStarted = sd.trialStartedAt?.toDate?.() as Date | undefined;
+
+                  if (rawStatus === "active") {
+                    subscriptionStatus = "active";
+                  } else if (trialStarted) {
+                    const msPerDay = 86_400_000;
+                    const elapsed = Date.now() - trialStarted.getTime();
+                    const daysLeft = 14 - Math.floor(elapsed / msPerDay);
+                    if (daysLeft > 0) {
+                      subscriptionStatus = "trial";
+                      trialDaysLeft = daysLeft;
+                    } else {
+                      subscriptionStatus = "expired";
+                      trialDaysLeft = 0;
+                    }
+                  } else {
+                    // Legacy school without trialStartedAt — treat as active
+                    subscriptionStatus = "active";
+                  }
+                }
               } catch { /* ignore */ }
               setState({
                 firebaseUser,
@@ -66,6 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 schoolId: userData.schoolId,
                 schoolName,
                 role: userData.role,
+                subscriptionStatus,
+                trialDaysLeft,
                 loading: false,
                 error: null,
               });
@@ -83,9 +117,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   if (retryDoc.exists()) {
                     const userData = { id: retryDoc.id, ...retryDoc.data() } as User;
                     let schoolName: string | null = null;
+                    let subscriptionStatus: SubscriptionStatus = "trial";
+                    let trialDaysLeft: number | null = null;
                     try {
                       const schoolDoc = await getDoc(doc(db, "schools", userData.schoolId));
-                      if (schoolDoc.exists()) schoolName = (schoolDoc.data().name as string) ?? null;
+                      if (schoolDoc.exists()) {
+                        const sd = schoolDoc.data();
+                        schoolName = (sd.name as string) ?? null;
+                        const rawStatus = sd.subscriptionStatus as SubscriptionStatus | undefined;
+                        const trialStarted = sd.trialStartedAt?.toDate?.() as Date | undefined;
+                        if (rawStatus === "active") {
+                          subscriptionStatus = "active";
+                        } else if (trialStarted) {
+                          const daysLeft = 14 - Math.floor((Date.now() - trialStarted.getTime()) / 86_400_000);
+                          subscriptionStatus = daysLeft > 0 ? "trial" : "expired";
+                          trialDaysLeft = Math.max(0, daysLeft);
+                        } else {
+                          subscriptionStatus = "active";
+                        }
+                      }
                     } catch { /* ignore */ }
                     setState({
                       firebaseUser,
@@ -93,6 +143,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                       schoolId: userData.schoolId,
                       schoolName,
                       role: userData.role,
+                      subscriptionStatus,
+                      trialDaysLeft,
                       loading: false,
                       error: null,
                     });
@@ -105,6 +157,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                       schoolId: null,
                       schoolName: null,
                       role: null,
+                      subscriptionStatus: null,
+                      trialDaysLeft: null,
                       loading: false,
                       error: null,
                     });
@@ -119,6 +173,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                       schoolId: null,
                       schoolName: null,
                       role: null,
+                      subscriptionStatus: null,
+                      trialDaysLeft: null,
                       loading: false,
                       error: null,
                     });
@@ -133,7 +189,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               firebaseUser,
               user: null,
               schoolId: null,
+              schoolName: null,
               role: null,
+              subscriptionStatus: null,
+              trialDaysLeft: null,
               loading: false,
               error: "Erro ao carregar dados do usuário. Verifique sua conexão.",
             });
@@ -143,7 +202,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             firebaseUser: null,
             user: null,
             schoolId: null,
+            schoolName: null,
             role: null,
+            subscriptionStatus: null,
+            trialDaysLeft: null,
             loading: false,
             error: null,
           });
@@ -157,7 +219,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         firebaseUser: null,
         user: null,
         schoolId: null,
+        schoolName: null,
         role: null,
+        subscriptionStatus: null,
+        trialDaysLeft: null,
         loading: false,
         error: "Erro ao conectar com o servidor. Verifique sua conexão.",
       });
