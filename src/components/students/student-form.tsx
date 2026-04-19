@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
-import { storage } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,7 +99,7 @@ export function StudentForm({ student, onSubmit, trigger }: StudentFormProps) {
         canvas.toBlob((blob) => {
           if (blob) resolve(blob);
           else reject(new Error("compression failed"));
-        }, "image/jpeg", 0.75);
+        }, "image/jpeg", 0.70);
       };
       img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("image load error")); };
       img.src = url;
@@ -125,12 +123,22 @@ export function StudentForm({ student, onSubmit, trigger }: StudentFormProps) {
     try {
       let photoUrl = student?.photoUrl ?? "";
       if (photoFile) {
-        const compressed = await compressImage(photoFile);
-        const storageRef = ref(storage, `students/${Date.now()}.jpg`);
-        const uploadPromise = uploadBytes(storageRef, compressed, { contentType: "image/jpeg" });
-        const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 30000));
-        const snap = await Promise.race([uploadPromise, timeoutPromise]);
-        photoUrl = await getDownloadURL(snap.ref);
+        const toastId = toast.loading("Processando foto…");
+        try {
+          const compressed = await compressImage(photoFile);
+          photoUrl = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = () => reject(new Error("read error"));
+            reader.readAsDataURL(compressed);
+          });
+          toast.dismiss(toastId);
+        } catch (uploadErr: unknown) {
+          toast.dismiss(toastId);
+          console.error("Erro ao processar foto:", uploadErr);
+          toast.warning("Foto não processada — aluno será salvo sem foto.");
+          photoUrl = student?.photoUrl ?? "";
+        }
       }
 
       await onSubmit({
@@ -148,9 +156,7 @@ export function StudentForm({ student, onSubmit, trigger }: StudentFormProps) {
       toast.success(isEditing ? `Dados de ${trimmedName} atualizados!` : `${trimmedName} cadastrado com sucesso!`);
     } catch (err: unknown) {
       console.error("Erro ao salvar aluno:", err);
-      const msg = err instanceof Error ? err.message : "";
-      if (msg === "timeout") toast.error("Upload da foto demorou muito. Verifique sua conexão e tente novamente.");
-      else toast.error("Erro ao salvar aluno. Tente novamente.");
+      toast.error("Erro ao salvar aluno. Tente novamente.");
     } finally {
       setLoading(false);
     }
