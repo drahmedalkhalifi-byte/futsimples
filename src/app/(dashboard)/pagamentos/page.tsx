@@ -309,6 +309,7 @@ function GerarMensalidades({ onGenerate }: GerarMensalidadesProps) {
   const [open, setOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const { students } = useStudents({ activeOnly: true });
+  const { payments } = usePayments();
 
   const now = new Date();
   const defaultMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -316,17 +317,28 @@ function GerarMensalidades({ onGenerate }: GerarMensalidadesProps) {
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<PaymentType>("mensalidade");
 
+  // Check how many students already have a payment of this type for the selected month
+  const alreadyGenerated = payments.filter(
+    (p) => p.month === month && p.type === type
+  );
+  const studentIdsWithPayment = new Set(alreadyGenerated.map((p) => p.studentId));
+  const studentsWithout = students.filter((s) => !studentIdsWithPayment.has(s.id));
+  const alreadyCount = students.length - studentsWithout.length;
+
   async function handleGenerate(e: React.FormEvent) {
     e.preventDefault();
     const parsedAmount = parseFloat(amount);
     if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) { toast.error("Informe um valor válido."); return; }
     if (!month) { toast.error("Selecione o mês de referência."); return; }
-    if (students.length === 0) { toast.error("Nenhum aluno ativo encontrado."); return; }
+    if (studentsWithout.length === 0) {
+      toast.error(`Todos os alunos já têm ${type} gerada para este mês.`);
+      return;
+    }
 
     const [year, mon] = month.split("-").map(Number);
     const dueDate = new Date(year, mon - 1, 10, 12, 0, 0);
 
-    const payments: Omit<Payment, "id" | "schoolId" | "createdAt" | "updatedAt">[] = students.map((s) => ({
+    const payments: Omit<Payment, "id" | "schoolId" | "createdAt" | "updatedAt">[] = studentsWithout.map((s) => ({
       studentId: s.id,
       studentName: s.name,
       type,
@@ -339,7 +351,7 @@ function GerarMensalidades({ onGenerate }: GerarMensalidadesProps) {
     setSaving(true);
     try {
       await onGenerate(payments);
-      toast.success(`${students.length} pagamento${students.length !== 1 ? "s" : ""} gerado${students.length !== 1 ? "s" : ""} com sucesso!`);
+      toast.success(`${studentsWithout.length} pagamento${studentsWithout.length !== 1 ? "s" : ""} gerado${studentsWithout.length !== 1 ? "s" : ""} com sucesso!`);
       setOpen(false);
     } catch {
       toast.error("Erro ao gerar pagamentos. Tente novamente.");
@@ -358,7 +370,7 @@ function GerarMensalidades({ onGenerate }: GerarMensalidadesProps) {
         <DialogHeader>
           <DialogTitle>Gerar Mensalidades</DialogTitle>
           <DialogDescription>
-            Cria um pagamento pendente para cada um dos {students.length} aluno{students.length !== 1 ? "s" : ""} ativos.
+            Cria um pagamento pendente para cada aluno ativo ainda sem lançamento no mês selecionado.
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleGenerate} className="space-y-4">
@@ -381,9 +393,19 @@ function GerarMensalidades({ onGenerate }: GerarMensalidadesProps) {
             <Label htmlFor="genAmount">Valor por aluno (R$)</Label>
             <Input id="genAmount" type="number" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="150.00" min="0.01" step="0.01" disabled={saving} />
           </div>
+          {alreadyCount > 0 && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-400">
+              ⚠️ {alreadyCount} aluno{alreadyCount !== 1 ? "s" : ""} já {alreadyCount !== 1 ? "têm" : "tem"} {type} para este mês e {alreadyCount !== 1 ? "serão ignorados" : "será ignorado"}.
+              {studentsWithout.length > 0 ? ` Serão gerados ${studentsWithout.length} novo${studentsWithout.length !== 1 ? "s" : ""}.` : " Nenhum novo será gerado."}
+            </div>
+          )}
           <DialogFooter>
-            <Button type="submit" disabled={saving || students.length === 0}>
-              {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</> : `Gerar para ${students.length} aluno${students.length !== 1 ? "s" : ""}`}
+            <Button type="submit" disabled={saving || studentsWithout.length === 0}>
+              {saving
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Gerando...</>
+                : studentsWithout.length === 0
+                ? "Todos já gerados"
+                : `Gerar para ${studentsWithout.length} aluno${studentsWithout.length !== 1 ? "s" : ""}`}
             </Button>
           </DialogFooter>
         </form>
