@@ -64,46 +64,46 @@ export default function PortalPage() {
           if (schoolDoc.exists()) schoolName = schoolDoc.data().name ?? schoolName;
         } catch { /* non-critical — fallback name used */ }
 
-        // Load payments for this student
-        const paymentsQ = query(collection(db, "payments"), where("studentId", "==", student.id));
-        const paymentsSnap = await getDocs(paymentsQ);
-        const payments = paymentsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Payment));
+        // Load payments, attendances, schedules — gracefully handle permission errors
+        let payments: Payment[] = [];
+        let attendances: Attendance[] = [];
+        let upcomingSchedules: Schedule[] = [];
 
-        // Load attendances for this student's category (last 3 months)
-        const threeMonthsAgo = new Date();
-        threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-        const attendancesQ = query(
-          collection(db, "attendances"),
-          where("schoolId", "==", schoolId),
-          where("category", "==", student.category),
-        );
-        const attSnap = await getDocs(attendancesQ);
-        const attendances = attSnap.docs
-          .map((d) => ({ id: d.id, ...d.data() } as Attendance))
-          .filter((a) => {
-            const d = toDate(a.date);
-            return d && d >= threeMonthsAgo;
-          });
+        try {
+          const paymentsSnap = await getDocs(query(collection(db, "payments"), where("studentId", "==", student.id)));
+          payments = paymentsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Payment));
+        } catch (e) { console.warn("Portal: erro ao carregar pagamentos", e); }
 
-        // Load upcoming schedules for this student's category
-        const now2 = new Date();
-        const schedulesQ = query(
-          collection(db, "schedules"),
-          where("schoolId", "==", schoolId),
-          where("category", "==", student.category),
-        );
-        const schedulesSnap = await getDocs(schedulesQ);
-        const upcomingSchedules = schedulesSnap.docs
-          .map(d => ({ id: d.id, ...d.data() } as Schedule))
-          .filter(s => {
-            const d = toDate(s.date);
-            return d && d >= now2;
-          })
-          .sort((a, b) => (toDate(a.date)?.getTime() ?? 0) - (toDate(b.date)?.getTime() ?? 0))
-          .slice(0, 4);
+        try {
+          const threeMonthsAgo = new Date();
+          threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+          const attSnap = await getDocs(query(
+            collection(db, "attendances"),
+            where("schoolId", "==", schoolId),
+            where("category", "==", student.category),
+          ));
+          attendances = attSnap.docs
+            .map((d) => ({ id: d.id, ...d.data() } as Attendance))
+            .filter((a) => { const d = toDate(a.date); return d && d >= threeMonthsAgo; });
+        } catch (e) { console.warn("Portal: erro ao carregar presenças", e); }
+
+        try {
+          const now2 = new Date();
+          const schedulesSnap = await getDocs(query(
+            collection(db, "schedules"),
+            where("schoolId", "==", schoolId),
+            where("category", "==", student.category),
+          ));
+          upcomingSchedules = schedulesSnap.docs
+            .map(d => ({ id: d.id, ...d.data() } as Schedule))
+            .filter(s => { const d = toDate(s.date); return d && d >= now2; })
+            .sort((a, b) => (toDate(a.date)?.getTime() ?? 0) - (toDate(b.date)?.getTime() ?? 0))
+            .slice(0, 4);
+        } catch (e) { console.warn("Portal: erro ao carregar agenda", e); }
 
         setData({ student, schoolName, payments, attendances, upcomingSchedules });
-      } catch {
+      } catch (err) {
+        console.error("Portal: erro crítico ao carregar dados", err);
         setNotFound(true);
       } finally {
         setLoading(false);
