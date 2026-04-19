@@ -4,7 +4,7 @@
  */
 
 const RESEND_API_URL = "https://api.resend.com/emails";
-const FROM_ADDRESS = "FutSimples <noreply@futsimples.com.br>";
+const FROM_ADDRESS = process.env.EMAIL_FROM ?? "FutSimples <onboarding@resend.dev>";
 
 async function sendEmail({
   to,
