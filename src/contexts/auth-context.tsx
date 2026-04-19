@@ -74,7 +74,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   const trialStarted = sd.trialStartedAt?.toDate?.() as Date | undefined;
 
                   if (rawStatus === "active") {
-                    subscriptionStatus = "active";
+                    // Verifica expiração para pagamentos PIX (não recorrentes)
+                    const expiresAt = sd.subscriptionExpiresAt?.toDate?.() as Date | undefined;
+                    if (expiresAt && expiresAt < new Date()) {
+                      subscriptionStatus = "expired";
+                    } else {
+                      subscriptionStatus = "active";
+                    }
                   } else if (trialStarted) {
                     const msPerDay = 86_400_000;
                     const elapsed = Date.now() - trialStarted.getTime();
@@ -127,7 +133,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         const rawStatus = sd.subscriptionStatus as SubscriptionStatus | undefined;
                         const trialStarted = sd.trialStartedAt?.toDate?.() as Date | undefined;
                         if (rawStatus === "active") {
-                          subscriptionStatus = "active";
+                          const expiresAt = sd.subscriptionExpiresAt?.toDate?.() as Date | undefined;
+                          if (expiresAt && expiresAt < new Date()) {
+                            subscriptionStatus = "expired";
+                          } else {
+                            subscriptionStatus = "active";
+                          }
                         } else if (trialStarted) {
                           const daysLeft = 7 - Math.floor((Date.now() - trialStarted.getTime()) / 86_400_000);
                           subscriptionStatus = daysLeft > 0 ? "trial" : "expired";
