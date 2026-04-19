@@ -80,6 +80,34 @@ export function StudentForm({ student, onSubmit, trigger }: StudentFormProps) {
     setPhotoPreview(URL.createObjectURL(file));
   }
 
+  async function compressImage(file: File): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        const MAX = 800;
+        let { width, height } = img;
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round((height * MAX) / width); width = MAX; }
+          else { width = Math.round((width * MAX) / height); height = MAX; }
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) { reject(new Error("canvas error")); return; }
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+          else reject(new Error("compression failed"));
+        }, "image/jpeg", 0.75);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("image load error")); };
+      img.src = url;
+    });
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const trimmedName = name.trim();
@@ -97,8 +125,11 @@ export function StudentForm({ student, onSubmit, trigger }: StudentFormProps) {
     try {
       let photoUrl = student?.photoUrl ?? "";
       if (photoFile) {
-        const storageRef = ref(storage, `students/${Date.now()}_${photoFile.name}`);
-        const snap = await uploadBytes(storageRef, photoFile);
+        const compressed = await compressImage(photoFile);
+        const storageRef = ref(storage, `students/${Date.now()}.jpg`);
+        const uploadPromise = uploadBytes(storageRef, compressed, { contentType: "image/jpeg" });
+        const timeoutPromise = new Promise<never>((_, rej) => setTimeout(() => rej(new Error("timeout")), 30000));
+        const snap = await Promise.race([uploadPromise, timeoutPromise]);
         photoUrl = await getDownloadURL(snap.ref);
       }
 
@@ -115,9 +146,11 @@ export function StudentForm({ student, onSubmit, trigger }: StudentFormProps) {
       setOpen(false);
       resetForm();
       toast.success(isEditing ? `Dados de ${trimmedName} atualizados!` : `${trimmedName} cadastrado com sucesso!`);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Erro ao salvar aluno:", err);
-      toast.error("Erro ao salvar aluno. Tente novamente.");
+      const msg = err instanceof Error ? err.message : "";
+      if (msg === "timeout") toast.error("Upload da foto demorou muito. Verifique sua conexão e tente novamente.");
+      else toast.error("Erro ao salvar aluno. Tente novamente.");
     } finally {
       setLoading(false);
     }
