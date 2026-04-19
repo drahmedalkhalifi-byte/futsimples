@@ -126,7 +126,7 @@ function whatsappUrl(
   const formattedDate = formatDate(dueDate);
   const pixLine = pixKey ? `\n\nChave PIX: *${pixKey}*` : "";
   const text = encodeURIComponent(
-    `Ola, ${guardian}! A mensalidade de *${studentName}* esta *pendente* no valor de *${formattedAmount}* com vencimento em *${formattedDate}*.${pixLine}\n\nContamos com voce para regularizar! Qualquer duvida, e so chamar.`
+    `Olá, ${guardian}! A mensalidade de *${studentName}* está *pendente* no valor de *${formattedAmount}* com vencimento em *${formattedDate}*.${pixLine}\n\nContamos com você para regularizar! Qualquer dúvida, é só chamar. 😊`
   );
   return `https://wa.me/${number}?text=${text}`;
 }
@@ -136,7 +136,7 @@ function whatsappReceiptUrl(studentName: string, guardian: string, phone: string
   const formattedAmount = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(amount);
   const month = new Date().toLocaleString("pt-BR", { month: "long", year: "numeric" });
   const text = encodeURIComponent(
-    `Ola, ${guardian}! Confirmamos o recebimento da mensalidade de *${studentName}* no valor de *${formattedAmount}* referente a *${month}*. Obrigado! ✅`
+    `Olá, ${guardian}! Confirmamos o recebimento da mensalidade de *${studentName}* no valor de *${formattedAmount}* referente a *${month}*. Obrigado! ✅`
   );
   return `https://wa.me/${number}?text=${text}`;
 }
