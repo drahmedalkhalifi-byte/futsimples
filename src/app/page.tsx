@@ -101,19 +101,14 @@ function TrustBar() {
   const items = [
     { icon: "💳", label: "Cartão de crédito" },
     { icon: "📄", label: "Boleto bancário" },
-    { label: "PIX", pix: true },
-    { icon: "💬", label: "WhatsApp integrado" },
+    { icon: "💬", label: "WhatsApp + PIX nas cobranças" },
     { icon: "🔒", label: "Dados seguros" },
   ];
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 mt-8">
       {items.map((item) => (
         <div key={item.label} className="flex items-center gap-1.5">
-          {item.pix ? (
-            <span className="text-xs font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-md">PIX</span>
-          ) : (
-            <span className="text-sm">{item.icon}</span>
-          )}
+          <span className="text-sm">{item.icon}</span>
           <span className="text-xs text-white/35">{item.label}</span>
         </div>
       ))}
@@ -510,7 +505,7 @@ export default function Home() {
               </Link>
             </div>
           </div>
-          <p className="text-center text-xs text-white/30 mt-6">Pagamento via Stripe · Cartão de crédito, PIX ou Boleto · Cancele quando quiser</p>
+          <p className="text-center text-xs text-white/30 mt-6">Assinatura via Stripe · Cartão de crédito ou Boleto bancário · Cancele quando quiser</p>
         </section>
 
         {/* ── FAQ ── */}
