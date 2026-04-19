@@ -28,6 +28,17 @@ function toDate(val: unknown): Date | null {
   return null;
 }
 
+function calcAge(birthDate?: string, fallback?: number): number | null {
+  if (birthDate) {
+    const [y, m, d] = birthDate.split("-").map(Number);
+    const today = new Date();
+    let age = today.getFullYear() - y;
+    if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--;
+    return age;
+  }
+  return fallback ?? null;
+}
+
 export default function PortalPage() {
   const { token } = useParams<{ token: string }>();
   const [data, setData] = useState<PortalData | null>(null);
@@ -178,7 +189,7 @@ export default function PortalPage() {
             }
             <div>
               <h1 className="text-lg font-black text-foreground">{student.name}</h1>
-              <p className="text-sm text-muted-foreground">{student.category.toUpperCase()} · {student.age} anos</p>
+              <p className="text-sm text-muted-foreground">{student.category.toUpperCase()} · {calcAge(student.birthDate, student.age) ?? "—"} anos</p>
               <p className="text-xs text-muted-foreground mt-0.5">Responsável: {student.guardian}</p>
             </div>
           </div>

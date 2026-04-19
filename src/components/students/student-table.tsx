@@ -47,6 +47,17 @@ function formatPhone(p: string): string {
   return p;
 }
 
+function calcAge(birthDate?: string, fallback?: number): number | null {
+  if (birthDate) {
+    const [y, m, d] = birthDate.split("-").map(Number);
+    const today = new Date();
+    let age = today.getFullYear() - y;
+    if (today.getMonth() + 1 < m || (today.getMonth() + 1 === m && today.getDate() < d)) age--;
+    return age;
+  }
+  return fallback ?? null;
+}
+
 function whatsappUrl(student: Student, schoolName: string): string {
   const number = formatWhatsAppNumber(student.phone);
   const text = encodeURIComponent(
@@ -281,7 +292,7 @@ export function StudentTable({
               {paginated.map((student) => (
                 <TableRow key={student.id} className={mode === "inactive" ? "opacity-70" : undefined}>
                   <TableCell className="font-medium">{student.name}</TableCell>
-                  <TableCell>{student.age} anos</TableCell>
+                  <TableCell>{calcAge(student.birthDate, student.age) ?? "—"} anos</TableCell>
                   <TableCell>
                     <Badge variant="outline" className={categoryColors[student.category]}>
                       {student.category}
