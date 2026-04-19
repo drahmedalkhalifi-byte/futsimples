@@ -6,6 +6,7 @@ import { useStudents } from "@/hooks/use-students";
 import { useAuth } from "@/contexts/auth-context";
 import { StudentForm } from "@/components/students/student-form";
 import { StudentTable } from "@/components/students/student-table";
+import { ImportarAlunos } from "@/components/students/importar-alunos";
 
 export default function AlunosPage() {
   const { role } = useAuth();
@@ -33,7 +34,12 @@ export default function AlunosPage() {
           <h2 className="text-2xl font-bold tracking-tight text-foreground">Alunos</h2>
           <p className="text-sm text-muted-foreground mt-1">Gerencie os alunos da sua escola</p>
         </div>
-        {canManage && tab === "ativos" && <StudentForm onSubmit={createStudent} />}
+        {canManage && tab === "ativos" && (
+          <div className="flex gap-2">
+            <ImportarAlunos onImport={createStudent} />
+            <StudentForm onSubmit={createStudent} />
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
