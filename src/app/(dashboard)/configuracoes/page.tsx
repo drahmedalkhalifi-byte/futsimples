@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Settings, UserPlus, Loader2, Trash2, AlertCircle, CheckCircle2, Users, QrCode } from "lucide-react";
+import { Settings, UserPlus, Loader2, Trash2, AlertCircle, CheckCircle2, Users, QrCode, CreditCard, ExternalLink, Clock } from "lucide-react";
 import { createUserWithEmailAndPassword, getAuth } from "firebase/auth";
 import { initializeApp, deleteApp } from "firebase/app";
 import { doc, setDoc, serverTimestamp, collection, query, where, onSnapshot, deleteDoc, getDoc, updateDoc } from "firebase/firestore";
@@ -31,7 +31,7 @@ interface TeamMember {
 }
 
 export default function ConfiguracoesPage() {
-  const { schoolId, schoolName, role, user } = useAuth();
+  const { schoolId, schoolName, role, user, subscriptionStatus, trialDaysLeft } = useAuth();
   const isAdmin = role === "admin";
 
   const [members, setMembers] = useState<TeamMember[]>([]);
@@ -47,6 +47,28 @@ export default function ConfiguracoesPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<TeamMember | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  // Subscription portal
+  const [portalLoading, setPortalLoading] = useState(false);
+
+  async function handleOpenPortal() {
+    if (!schoolId) return;
+    setPortalLoading(true);
+    try {
+      const res = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ schoolId }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.url) throw new Error(data.error ?? "Erro desconhecido");
+      window.location.href = data.url;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao abrir portal de assinatura.");
+    } finally {
+      setPortalLoading(false);
+    }
+  }
 
   // PIX key
   const [pixKey, setPixKey] = useState("");
@@ -176,6 +198,72 @@ export default function ConfiguracoesPage() {
           </div>
         </div>
       </section>
+
+      {/* Assinatura */}
+      {isAdmin && (
+        <section className="rounded-xl border border-border/50 bg-card p-5 space-y-4">
+          <div className="flex items-center gap-2">
+            <CreditCard className="w-4 h-4 text-primary" />
+            <h3 className="text-sm font-semibold text-foreground">Assinatura</h3>
+          </div>
+
+          {/* Status */}
+          <div className="flex items-center justify-between p-3 rounded-lg bg-muted/40 border border-border/40">
+            <div className="flex items-center gap-3">
+              <div className={`w-2.5 h-2.5 rounded-full ${
+                subscriptionStatus === "active" ? "bg-emerald-500" :
+                subscriptionStatus === "trial" ? "bg-amber-400" : "bg-red-500"
+              }`} />
+              <div>
+                <p className="text-sm font-medium text-foreground">
+                  {subscriptionStatus === "active" && "Assinatura ativa"}
+                  {subscriptionStatus === "trial" && "Período de teste gratuito"}
+                  {subscriptionStatus === "expired" && "Teste encerrado"}
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {subscriptionStatus === "trial" && trialDaysLeft !== null && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {trialDaysLeft === 1 ? "Termina amanhã" : `${trialDaysLeft} dias restantes`}
+                    </span>
+                  )}
+                  {subscriptionStatus === "active" && "Cartão de crédito ou Boleto via Stripe"}
+                  {subscriptionStatus === "expired" && "Assine para continuar usando"}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          {subscriptionStatus === "active" ? (
+            <div className="space-y-3">
+              <Button
+                className="w-full gap-2"
+                variant="outline"
+                onClick={handleOpenPortal}
+                disabled={portalLoading}
+              >
+                {portalLoading
+                  ? <><Loader2 className="w-4 h-4 animate-spin" />Abrindo...</>
+                  : <><ExternalLink className="w-4 h-4" />Gerenciar assinatura</>
+                }
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Troque o cartão, emita boleto, veja faturas ou cancele — tudo pelo portal seguro do Stripe.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <Button className="w-full" onClick={() => window.location.href = "/assinar"}>
+                {subscriptionStatus === "expired" ? "Assinar agora" : "Ver planos e assinar"}
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                R$59,90/mês ou R$599/ano · Cartão de crédito ou Boleto via Stripe
+              </p>
+            </div>
+          )}
+        </section>
+      )}
 
       {/* PIX Key */}
       {isAdmin && (

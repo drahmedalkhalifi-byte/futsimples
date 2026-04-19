@@ -119,7 +119,7 @@ export default function Home() {
           </p>
 
           <p className="text-sm text-emerald-400 font-semibold mb-10">
-            ✓ 14 dias grátis &nbsp;·&nbsp; ✓ Sem cartão agora &nbsp;·&nbsp; ✓ Cancele quando quiser
+            ✓ 14 dias grátis sem pagar nada &nbsp;·&nbsp; ✓ Depois: Cartão ou Boleto &nbsp;·&nbsp; ✓ Cancele quando quiser
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -140,7 +140,7 @@ export default function Home() {
             {[
               { icon: Smartphone, value: "100%", label: "Pelo celular" },
               { icon: Star, value: "14 dias", label: "Grátis para testar" },
-              { icon: CheckCircle2, value: "Sem cartão", label: "Para começar" },
+              { icon: CheckCircle2, value: "Stripe", label: "Cartão ou Boleto" },
             ].map((s) => (
               <div key={s.label} className="flex items-center gap-2.5">
                 <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
@@ -359,7 +359,7 @@ export default function Home() {
                 <ArrowRight className="w-5 h-5" />
               </span>
             </Link>
-            <p className="text-white/25 text-sm mt-4">14 dias grátis · Cartão de crédito ou Boleto · Cancele quando quiser</p>
+            <p className="text-white/25 text-sm mt-4">14 dias grátis · Pagamento via Stripe (Cartão de crédito ou Boleto) · Cancele quando quiser</p>
           </div>
         </section>
 
