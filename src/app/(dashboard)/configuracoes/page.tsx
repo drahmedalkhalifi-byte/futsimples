@@ -72,17 +72,27 @@ export default function ConfiguracoesPage() {
     }
   }
 
-  // PIX key
+  // PIX key + payment method
   const [pixKey, setPixKey] = useState("");
   const [savingPix, setSavingPix] = useState(false);
+  const [lastPaymentMethod, setLastPaymentMethod] = useState<string | null>(null);
+  const [subscriptionExpiresAt, setSubscriptionExpiresAt] = useState<Date | null>(null);
 
-  // Load school data (for PIX key)
+  // Load school data (for PIX key + payment method)
   useEffect(() => {
     if (!schoolId) return;
     getDoc(doc(db, "schools", schoolId)).then((snap) => {
-      if (snap.exists()) setPixKey(snap.data().pixKey ?? "");
+      if (snap.exists()) {
+        const data = snap.data();
+        setPixKey(data.pixKey ?? "");
+        setLastPaymentMethod(data.lastPaymentMethod ?? null);
+        const exp = data.subscriptionExpiresAt;
+        if (exp?.toDate) setSubscriptionExpiresAt(exp.toDate());
+      }
     });
   }, [schoolId]);
+
+  const isPix = lastPaymentMethod === "pix";
 
   async function handleSavePix() {
     if (!schoolId) return;
@@ -229,7 +239,13 @@ export default function ConfiguracoesPage() {
                       {trialDaysLeft === 1 ? "Termina amanhã" : `${trialDaysLeft} dias restantes`}
                     </span>
                   )}
-                  {subscriptionStatus === "active" && "Cartão de crédito ou Boleto via Stripe"}
+                  {subscriptionStatus === "active" && isPix && subscriptionExpiresAt && (
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      Pago via PIX · vence em {subscriptionExpiresAt.toLocaleDateString("pt-BR")}
+                    </span>
+                  )}
+                  {subscriptionStatus === "active" && !isPix && "Cartão de crédito ou Boleto via Stripe"}
                   {subscriptionStatus === "expired" && "Assine para continuar usando"}
                 </p>
               </div>
@@ -237,7 +253,16 @@ export default function ConfiguracoesPage() {
           </div>
 
           {/* Actions */}
-          {subscriptionStatus === "active" ? (
+          {subscriptionStatus === "active" && isPix ? (
+            <div className="space-y-3">
+              <Button className="w-full" onClick={() => window.location.href = "/assinar"}>
+                Renovar assinatura via PIX
+              </Button>
+              <p className="text-xs text-muted-foreground text-center">
+                Renove antes do vencimento para não perder o acesso.
+              </p>
+            </div>
+          ) : subscriptionStatus === "active" && !isPix ? (
             <div className="space-y-3">
               <Button
                 className="w-full gap-2"
@@ -260,7 +285,7 @@ export default function ConfiguracoesPage() {
                 {subscriptionStatus === "expired" ? "Assinar agora" : "Assinar — R$59,90/mês ou R$599/ano"}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
-                Cartão de crédito ou Boleto · Pagamento seguro via Stripe
+                Cartão de crédito, Boleto ou PIX · Pagamento seguro
               </p>
             </div>
           )}
