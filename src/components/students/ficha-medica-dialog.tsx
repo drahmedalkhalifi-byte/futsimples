@@ -48,16 +48,20 @@ export function FichaMedicaDialog({ student, onSave }: Props) {
     e.preventDefault();
     setSaving(true);
     try {
-      const medicalInfo: StudentMedicalInfo = {
-        bloodType: bloodType || undefined,
-        allergies: allergies.trim() || undefined,
-        medications: medications.trim() || undefined,
-        specialConditions: specialConditions.trim() || undefined,
-        healthInsurance: healthInsurance.trim() || undefined,
-        emergencyContactName: emergencyName.trim() || undefined,
-        emergencyContactPhone: emergencyPhone.trim() || undefined,
+      const raw: Record<string, unknown> = {
+        bloodType: bloodType || null,
+        allergies: allergies.trim() || null,
+        medications: medications.trim() || null,
+        specialConditions: specialConditions.trim() || null,
+        healthInsurance: healthInsurance.trim() || null,
+        emergencyContactName: emergencyName.trim() || null,
+        emergencyContactPhone: emergencyPhone.trim() || null,
         parentAuthorization: parentAuth,
       };
+      // Remove null values so Firestore doesn't complain
+      const medicalInfo = Object.fromEntries(
+        Object.entries(raw).filter(([, v]) => v !== null)
+      ) as StudentMedicalInfo;
       await onSave(student.id, { medicalInfo });
       toast.success("Ficha médica salva!");
       setOpen(false);
