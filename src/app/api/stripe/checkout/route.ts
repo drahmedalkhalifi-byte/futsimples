@@ -4,11 +4,16 @@ import Stripe from "stripe";
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: "2024-06-20",
-  });
-
   try {
+    const stripeKey = process.env.STRIPE_SECRET_KEY;
+    if (!stripeKey) {
+      return NextResponse.json({ error: "Stripe não configurado. Contacte o suporte." }, { status: 500 });
+    }
+
+    const stripe = new Stripe(stripeKey, {
+      apiVersion: "2024-06-20",
+    });
+
     const { schoolId, plan = "monthly" } = await req.json();
     if (!schoolId) {
       return NextResponse.json({ error: "schoolId required" }, { status: 400 });
@@ -44,6 +49,6 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Stripe checkout error:", err);
     const message = err instanceof Error ? err.message : "Erro ao criar sessão de pagamento.";
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ error: message || "Erro interno. Tente novamente." }, { status: 500 });
   }
 }
