@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
+import { collection, query, where, getDocs, getDoc, doc, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
   Trophy, CheckCircle2, Clock, CreditCard,
@@ -57,11 +57,12 @@ export default function PortalPage() {
         const student = { id: studentDoc.id, ...studentDoc.data() } as Student;
         const schoolId = student.schoolId;
 
-        // Load school name
-        const schoolsQ = query(collection(db, "schools"), where("__name__", "==", schoolId));
+        // Load school name — direct doc read, no auth required
         let schoolName = "Escolinha";
-        const schoolSnap = await getDocs(collection(db, "schools"));
-        schoolSnap.docs.forEach((d) => { if (d.id === schoolId) schoolName = d.data().name ?? schoolName; });
+        try {
+          const schoolDoc = await getDoc(doc(db, "schools", schoolId));
+          if (schoolDoc.exists()) schoolName = schoolDoc.data().name ?? schoolName;
+        } catch { /* non-critical — fallback name used */ }
 
         // Load payments for this student
         const paymentsQ = query(collection(db, "payments"), where("studentId", "==", student.id));
