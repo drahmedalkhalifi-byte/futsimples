@@ -44,11 +44,15 @@ function AssinarContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ schoolId, plan }),
       });
-      const data = await res.json();
-      if (!res.ok || !data.url) throw new Error(data.error ?? "Erro desconhecido");
+      const text = await res.text();
+      let data: { url?: string; error?: string } = {};
+      try { data = text ? JSON.parse(text) : {}; } catch { /* empty body */ }
+      if (!res.ok || !data.url) {
+        throw new Error(data.error ?? `Erro ${res.status}: resposta inesperada do servidor.`);
+      }
       window.location.href = data.url;
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao iniciar pagamento.");
+      setError(err instanceof Error ? err.message : "Erro ao iniciar pagamento. Tente novamente.");
       setLoading(false);
     }
   }

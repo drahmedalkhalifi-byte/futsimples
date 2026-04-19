@@ -19,12 +19,7 @@ export async function POST(req: NextRequest) {
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
-      payment_method_types: ["card", "boleto"],
-      payment_method_options: {
-        boleto: {
-          expires_after_days: 3,
-        },
-      },
+      payment_method_types: ["card"],
       line_items: [
         {
           price_data: {
