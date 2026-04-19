@@ -13,6 +13,43 @@ import {
 import { MobileNav } from "./mobile-nav";
 import { useAuth } from "@/contexts/auth-context";
 
+function SubscriptionBadge() {
+  const { subscriptionStatus, trialDaysLeft, subscriptionExpiresAt } = useAuth();
+
+  const pixDaysLeft = subscriptionExpiresAt
+    ? Math.ceil((subscriptionExpiresAt.getTime() - Date.now()) / 86_400_000)
+    : null;
+
+  if (subscriptionStatus === "trial") {
+    return (
+      <span className="hidden sm:flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/25">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+        Teste{trialDaysLeft !== null ? ` · ${trialDaysLeft}d` : ""}
+      </span>
+    );
+  }
+
+  if (subscriptionStatus === "active" && pixDaysLeft !== null && pixDaysLeft <= 7) {
+    return (
+      <span className="hidden sm:flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full bg-orange-500/15 text-orange-400 border border-orange-500/25">
+        <span className="w-1.5 h-1.5 rounded-full bg-orange-400 animate-pulse" />
+        Vence em {pixDaysLeft}d
+      </span>
+    );
+  }
+
+  if (subscriptionStatus === "active") {
+    return (
+      <span className="hidden sm:flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+        Ativa
+      </span>
+    );
+  }
+
+  return null;
+}
+
 export function Topbar() {
   const { user, signOut } = useAuth();
   const router = useRouter();
@@ -36,6 +73,7 @@ export function Topbar() {
     <header className="sticky top-0 z-30 flex items-center justify-between h-16 px-4 lg:px-8 border-b border-white/5 bg-[oklch(0.09_0.015_260)]/90 backdrop-blur-xl">
       <div className="flex items-center gap-3">
         <MobileNav />
+        <SubscriptionBadge />
       </div>
 
       <DropdownMenu>

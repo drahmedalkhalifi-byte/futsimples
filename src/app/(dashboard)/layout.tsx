@@ -13,7 +13,12 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { firebaseUser, loading, error, isReady, schoolId, subscriptionStatus, trialDaysLeft } = useAuth();
+  const { firebaseUser, loading, error, isReady, schoolId, subscriptionStatus, trialDaysLeft, subscriptionExpiresAt } = useAuth();
+
+  // Days until PIX subscription expires (null = Stripe auto-renews or no expiry)
+  const pixDaysLeft = subscriptionExpiresAt
+    ? Math.ceil((subscriptionExpiresAt.getTime() - Date.now()) / 86_400_000)
+    : null;
   const router = useRouter();
 
   useEffect(() => {
@@ -88,6 +93,26 @@ export default function DashboardLayout({
               onClick={() => router.push("/assinar")}
             >
               Assinar agora
+            </Button>
+          </div>
+        )}
+
+        {/* PIX expiry banner — only shown in the last 7 days */}
+        {subscriptionStatus === "active" && pixDaysLeft !== null && pixDaysLeft <= 7 && (
+          <div className="bg-orange-500 text-white text-sm px-4 py-2 flex items-center justify-between gap-4">
+            <span className="flex items-center gap-2">
+              <Clock className="w-4 h-4 shrink-0" />
+              {pixDaysLeft <= 1
+                ? "Sua assinatura vence hoje! Renove para não perder o acesso."
+                : `Sua assinatura vence em ${pixDaysLeft} dias. Renove agora.`}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-white/60 text-white hover:bg-white/10 hover:text-white shrink-0 h-7 text-xs"
+              onClick={() => router.push("/assinar")}
+            >
+              Renovar
             </Button>
           </div>
         )}

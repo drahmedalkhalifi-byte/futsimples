@@ -27,6 +27,8 @@ interface AuthState {
   role: UserRole | null;
   subscriptionStatus: SubscriptionStatus | null;
   trialDaysLeft: number | null;
+  /** Date when PIX subscription expires. null for Stripe (auto-renews) or trial. */
+  subscriptionExpiresAt: Date | null;
   loading: boolean;
   error: string | null;
 }
@@ -40,185 +42,136 @@ interface AuthContextType extends AuthState {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+function resolveSubscription(sd: Record<string, unknown>): {
+  subscriptionStatus: SubscriptionStatus;
+  trialDaysLeft: number | null;
+  subscriptionExpiresAt: Date | null;
+} {
+  const rawStatus = sd.subscriptionStatus as SubscriptionStatus | undefined;
+  const trialStarted = (sd.trialStartedAt as { toDate?: () => Date } | undefined)?.toDate?.();
+  const expiresAtRaw = (sd.subscriptionExpiresAt as { toDate?: () => Date } | undefined)?.toDate?.();
+
+  if (rawStatus === "active") {
+    if (expiresAtRaw && expiresAtRaw < new Date()) {
+      return { subscriptionStatus: "expired", trialDaysLeft: null, subscriptionExpiresAt: expiresAtRaw };
+    }
+    return { subscriptionStatus: "active", trialDaysLeft: null, subscriptionExpiresAt: expiresAtRaw ?? null };
+  }
+
+  if (trialStarted) {
+    const daysLeft = 7 - Math.floor((Date.now() - trialStarted.getTime()) / 86_400_000);
+    if (daysLeft > 0) {
+      return { subscriptionStatus: "trial", trialDaysLeft: daysLeft, subscriptionExpiresAt: null };
+    }
+    return { subscriptionStatus: "expired", trialDaysLeft: 0, subscriptionExpiresAt: null };
+  }
+
+  // Legacy school without trialStartedAt — treat as active
+  return { subscriptionStatus: "active", trialDaysLeft: null, subscriptionExpiresAt: null };
+}
+
+const EMPTY_STATE: AuthState = {
+  firebaseUser: null,
+  user: null,
+  schoolId: null,
+  schoolName: null,
+  role: null,
+  subscriptionStatus: null,
+  trialDaysLeft: null,
+  subscriptionExpiresAt: null,
+  loading: false,
+  error: null,
+};
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AuthState>({
-    firebaseUser: null,
-    user: null,
-    schoolId: null,
-    schoolName: null,
-    role: null,
-    subscriptionStatus: null,
-    trialDaysLeft: null,
+    ...EMPTY_STATE,
     loading: true,
-    error: null,
   });
 
   useEffect(() => {
     try {
       const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-        if (firebaseUser) {
+        if (!firebaseUser) {
+          setState({ ...EMPTY_STATE });
+          return;
+        }
+
+        async function loadUser(uid: string) {
+          const userDoc = await getDoc(doc(db, "users", uid));
+          if (!userDoc.exists()) return null;
+          const userData = { id: userDoc.id, ...userDoc.data() } as User;
+
+          let schoolName: string | null = null;
+          let subResult = { subscriptionStatus: "trial" as SubscriptionStatus, trialDaysLeft: null as number | null, subscriptionExpiresAt: null as Date | null };
+
           try {
-            const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-            if (userDoc.exists()) {
-              const userData = { id: userDoc.id, ...userDoc.data() } as User;
-              let schoolName: string | null = null;
-              let subscriptionStatus: SubscriptionStatus = "trial";
-              let trialDaysLeft: number | null = null;
-              try {
-                const schoolDoc = await getDoc(doc(db, "schools", userData.schoolId));
-                if (schoolDoc.exists()) {
-                  const sd = schoolDoc.data();
-                  schoolName = (sd.name as string) ?? null;
-
-                  const rawStatus = sd.subscriptionStatus as SubscriptionStatus | undefined;
-                  const trialStarted = sd.trialStartedAt?.toDate?.() as Date | undefined;
-
-                  if (rawStatus === "active") {
-                    // Verifica expiração para pagamentos PIX (não recorrentes)
-                    const expiresAt = sd.subscriptionExpiresAt?.toDate?.() as Date | undefined;
-                    if (expiresAt && expiresAt < new Date()) {
-                      subscriptionStatus = "expired";
-                    } else {
-                      subscriptionStatus = "active";
-                    }
-                  } else if (trialStarted) {
-                    const msPerDay = 86_400_000;
-                    const elapsed = Date.now() - trialStarted.getTime();
-                    const daysLeft = 7 - Math.floor(elapsed / msPerDay);
-                    if (daysLeft > 0) {
-                      subscriptionStatus = "trial";
-                      trialDaysLeft = daysLeft;
-                    } else {
-                      subscriptionStatus = "expired";
-                      trialDaysLeft = 0;
-                    }
-                  } else {
-                    // Legacy school without trialStartedAt — treat as active
-                    subscriptionStatus = "active";
-                  }
-                }
-              } catch { /* ignore */ }
-              setState({
-                firebaseUser,
-                user: userData,
-                schoolId: userData.schoolId,
-                schoolName,
-                role: userData.role,
-                subscriptionStatus,
-                trialDaysLeft,
-                loading: false,
-                error: null,
-              });
-            } else {
-              // Auth user exists but no Firestore doc.
-              // This happens during setup: createUserWithEmailAndPassword fires
-              // onAuthStateChanged before setDoc writes the user document.
-              // Poll up to 5 times (1s apart) so we wait for the setDoc to complete.
-              setState((prev) => ({ ...prev, loading: true }));
-              let attempts = 0;
-              const poll = async () => {
-                attempts++;
-                try {
-                  const retryDoc = await getDoc(doc(db, "users", firebaseUser.uid));
-                  if (retryDoc.exists()) {
-                    const userData = { id: retryDoc.id, ...retryDoc.data() } as User;
-                    let schoolName: string | null = null;
-                    let subscriptionStatus: SubscriptionStatus = "trial";
-                    let trialDaysLeft: number | null = null;
-                    try {
-                      const schoolDoc = await getDoc(doc(db, "schools", userData.schoolId));
-                      if (schoolDoc.exists()) {
-                        const sd = schoolDoc.data();
-                        schoolName = (sd.name as string) ?? null;
-                        const rawStatus = sd.subscriptionStatus as SubscriptionStatus | undefined;
-                        const trialStarted = sd.trialStartedAt?.toDate?.() as Date | undefined;
-                        if (rawStatus === "active") {
-                          const expiresAt = sd.subscriptionExpiresAt?.toDate?.() as Date | undefined;
-                          if (expiresAt && expiresAt < new Date()) {
-                            subscriptionStatus = "expired";
-                          } else {
-                            subscriptionStatus = "active";
-                          }
-                        } else if (trialStarted) {
-                          const daysLeft = 7 - Math.floor((Date.now() - trialStarted.getTime()) / 86_400_000);
-                          subscriptionStatus = daysLeft > 0 ? "trial" : "expired";
-                          trialDaysLeft = Math.max(0, daysLeft);
-                        } else {
-                          subscriptionStatus = "active";
-                        }
-                      }
-                    } catch { /* ignore */ }
-                    setState({
-                      firebaseUser,
-                      user: userData,
-                      schoolId: userData.schoolId,
-                      schoolName,
-                      role: userData.role,
-                      subscriptionStatus,
-                      trialDaysLeft,
-                      loading: false,
-                      error: null,
-                    });
-                  } else if (attempts < 5) {
-                    setTimeout(poll, 1000);
-                  } else {
-                    setState({
-                      firebaseUser,
-                      user: null,
-                      schoolId: null,
-                      schoolName: null,
-                      role: null,
-                      subscriptionStatus: null,
-                      trialDaysLeft: null,
-                      loading: false,
-                      error: null,
-                    });
-                  }
-                } catch {
-                  if (attempts < 5) {
-                    setTimeout(poll, 1000);
-                  } else {
-                    setState({
-                      firebaseUser,
-                      user: null,
-                      schoolId: null,
-                      schoolName: null,
-                      role: null,
-                      subscriptionStatus: null,
-                      trialDaysLeft: null,
-                      loading: false,
-                      error: null,
-                    });
-                  }
-                }
-              };
-              setTimeout(poll, 500);
+            const schoolDoc = await getDoc(doc(db, "schools", userData.schoolId));
+            if (schoolDoc.exists()) {
+              const sd = schoolDoc.data() as Record<string, unknown>;
+              schoolName = (sd.name as string) ?? null;
+              subResult = resolveSubscription(sd);
             }
-          } catch (err) {
-            console.error("Erro ao carregar dados do usuário:", err);
+          } catch { /* ignore */ }
+
+          return { userData, schoolName, subResult };
+        }
+
+        try {
+          const result = await loadUser(firebaseUser.uid);
+
+          if (result) {
+            const { userData, schoolName, subResult } = result;
             setState({
               firebaseUser,
-              user: null,
-              schoolId: null,
-              schoolName: null,
-              role: null,
-              subscriptionStatus: null,
-              trialDaysLeft: null,
+              user: userData,
+              schoolId: userData.schoolId,
+              schoolName,
+              role: userData.role,
+              ...subResult,
               loading: false,
-              error: "Erro ao carregar dados do usuário. Verifique sua conexão.",
+              error: null,
             });
+          } else {
+            // Auth user exists but no Firestore doc yet.
+            // Poll up to 5 times (1s apart) while setDoc completes.
+            setState((prev) => ({ ...prev, loading: true }));
+            let attempts = 0;
+            const poll = async () => {
+              attempts++;
+              try {
+                const result2 = await loadUser(firebaseUser.uid);
+                if (result2) {
+                  const { userData, schoolName, subResult } = result2;
+                  setState({
+                    firebaseUser,
+                    user: userData,
+                    schoolId: userData.schoolId,
+                    schoolName,
+                    role: userData.role,
+                    ...subResult,
+                    loading: false,
+                    error: null,
+                  });
+                } else if (attempts < 5) {
+                  setTimeout(poll, 1000);
+                } else {
+                  setState({ ...EMPTY_STATE, firebaseUser, loading: false });
+                }
+              } catch {
+                if (attempts < 5) setTimeout(poll, 1000);
+                else setState({ ...EMPTY_STATE, firebaseUser, loading: false });
+              }
+            };
+            setTimeout(poll, 500);
           }
-        } else {
+        } catch (err) {
+          console.error("Erro ao carregar dados do usuário:", err);
           setState({
-            firebaseUser: null,
-            user: null,
-            schoolId: null,
-            schoolName: null,
-            role: null,
-            subscriptionStatus: null,
-            trialDaysLeft: null,
+            ...EMPTY_STATE,
+            firebaseUser,
             loading: false,
-            error: null,
+            error: "Erro ao carregar dados do usuário. Verifique sua conexão.",
           });
         }
       });
@@ -227,13 +180,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       console.error("Erro ao inicializar autenticação:", err);
       setState({
-        firebaseUser: null,
-        user: null,
-        schoolId: null,
-        schoolName: null,
-        role: null,
-        subscriptionStatus: null,
-        trialDaysLeft: null,
+        ...EMPTY_STATE,
         loading: false,
         error: "Erro ao conectar com o servidor. Verifique sua conexão.",
       });
