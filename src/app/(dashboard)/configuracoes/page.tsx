@@ -60,7 +60,9 @@ export default function ConfiguracoesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ schoolId }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      if (!text) throw new Error("Resposta vazia do servidor.");
+      const data = JSON.parse(text);
       if (!res.ok || !data.url) throw new Error(data.error ?? "Erro desconhecido");
       window.location.href = data.url;
     } catch (err) {
@@ -245,20 +247,20 @@ export default function ConfiguracoesPage() {
               >
                 {portalLoading
                   ? <><Loader2 className="w-4 h-4 animate-spin" />Abrindo...</>
-                  : <><ExternalLink className="w-4 h-4" />Gerenciar assinatura</>
+                  : <><ExternalLink className="w-4 h-4" />Gerenciar assinatura no Stripe</>
                 }
               </Button>
               <p className="text-xs text-muted-foreground text-center">
-                Troque o cartão, emita boleto, veja faturas ou cancele — tudo pelo portal seguro do Stripe.
+                Troque o cartão, emita boleto, veja faturas ou cancele — portal seguro do Stripe.
               </p>
             </div>
           ) : (
             <div className="space-y-3">
               <Button className="w-full" onClick={() => window.location.href = "/assinar"}>
-                {subscriptionStatus === "expired" ? "Assinar agora" : "Ver planos e assinar"}
+                {subscriptionStatus === "expired" ? "Assinar agora" : "Assinar — R$59,90/mês ou R$599/ano"}
               </Button>
               <p className="text-xs text-muted-foreground text-center">
-                R$59,90/mês ou R$599/ano · Cartão de crédito ou Boleto via Stripe
+                Cartão de crédito ou Boleto · Pagamento seguro via Stripe
               </p>
             </div>
           )}
