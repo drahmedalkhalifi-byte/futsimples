@@ -1,12 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Users, UserX } from "lucide-react";
+import { Users, UserX, Trash2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { useStudents } from "@/hooks/use-students";
 import { useAuth } from "@/contexts/auth-context";
 import { StudentForm } from "@/components/students/student-form";
 import { StudentTable } from "@/components/students/student-table";
 import { ImportarAlunos } from "@/components/students/importar-alunos";
+
+// Names used in the seed data (setup/page.tsx)
+const SAMPLE_NAMES = ["Lucas Mendes", "Ana Carolina Silva", "Pedro Oliveira", "Sofia Santos", "Gabriel Costa"];
 
 export default function AlunosPage() {
   const { role } = useAuth();
@@ -21,7 +25,24 @@ export default function AlunosPage() {
   } = useStudents({ activeOnly: false });
 
   const [tab, setTab] = useState<"ativos" | "inativos">("ativos");
+  const [removingSamples, setRemovingSamples] = useState(false);
   const canManage = role !== "coach";
+
+  const sampleStudents = allStudents.filter((s) => SAMPLE_NAMES.includes(s.name));
+  const hasSamples = sampleStudents.length > 0;
+
+  async function handleRemoveSamples() {
+    if (!canManage) return;
+    setRemovingSamples(true);
+    try {
+      for (const s of sampleStudents) await deleteStudent(s.id);
+      toast.success("Alunos de exemplo removidos!");
+    } catch {
+      toast.error("Erro ao remover alunos de exemplo.");
+    } finally {
+      setRemovingSamples(false);
+    }
+  }
 
   const activeStudents   = allStudents.filter((s) => s.active !== false);
   const inactiveStudents = allStudents.filter((s) => s.active === false);
@@ -41,6 +62,24 @@ export default function AlunosPage() {
           </div>
         )}
       </div>
+
+      {/* Sample students banner */}
+      {hasSamples && canManage && !loading && (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-blue-500/30 bg-blue-500/5 px-4 py-3">
+          <p className="text-sm text-blue-300">
+            👋 Esses são <strong>alunos de exemplo</strong> criados automaticamente. Remova-os antes de começar a usar o sistema.
+          </p>
+          <button
+            onClick={handleRemoveSamples}
+            disabled={removingSamples}
+            className="inline-flex items-center gap-1.5 shrink-0 rounded-lg border border-blue-500/40 px-3 py-1.5 text-xs font-semibold text-blue-300 hover:bg-blue-500/15 transition-colors disabled:opacity-60"
+          >
+            {removingSamples
+              ? <><Loader2 className="w-3 h-3 animate-spin" />Removendo...</>
+              : <><Trash2 className="w-3 h-3" />Remover exemplos</>}
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 p-1 bg-muted rounded-xl w-fit">
