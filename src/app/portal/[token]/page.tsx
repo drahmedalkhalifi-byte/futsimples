@@ -5,16 +5,18 @@ import { useParams } from "next/navigation";
 import { collection, query, where, getDocs, Timestamp } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import {
-  Trophy, CheckCircle2, XCircle, Clock, CreditCard,
+  Trophy, CheckCircle2, Clock, CreditCard,
   CalendarCheck, Loader2, AlertCircle, HeartPulse,
+  Swords, Dumbbell,
 } from "lucide-react";
-import type { Student, Payment, Attendance } from "@/types";
+import type { Student, Payment, Attendance, Schedule } from "@/types";
 
 interface PortalData {
   student: Student;
   schoolName: string;
   payments: Payment[];
   attendances: Attendance[];
+  upcomingSchedules: Schedule[];
 }
 
 function toDate(val: unknown): Date | null {
@@ -71,7 +73,24 @@ export default function PortalPage() {
             return d && d >= threeMonthsAgo;
           });
 
-        setData({ student, schoolName, payments, attendances });
+        // Load upcoming schedules for this student's category
+        const now2 = new Date();
+        const schedulesQ = query(
+          collection(db, "schedules"),
+          where("schoolId", "==", schoolId),
+          where("category", "==", student.category),
+        );
+        const schedulesSnap = await getDocs(schedulesQ);
+        const upcomingSchedules = schedulesSnap.docs
+          .map(d => ({ id: d.id, ...d.data() } as Schedule))
+          .filter(s => {
+            const d = toDate(s.date);
+            return d && d >= now2;
+          })
+          .sort((a, b) => (toDate(a.date)?.getTime() ?? 0) - (toDate(b.date)?.getTime() ?? 0))
+          .slice(0, 4);
+
+        setData({ student, schoolName, payments, attendances, upcomingSchedules });
       } catch {
         setNotFound(true);
       } finally {
@@ -97,7 +116,7 @@ export default function PortalPage() {
     </div>
   );
 
-  const { student, schoolName, payments, attendances } = data;
+  const { student, schoolName, payments, attendances, upcomingSchedules } = data;
 
   // Current month payments
   const now = new Date();
@@ -151,9 +170,12 @@ export default function PortalPage() {
         {/* Student card */}
         <div className="rounded-2xl border border-border/50 bg-card p-5">
           <div className="flex items-center gap-4">
-            <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 text-xl font-black text-primary">
-              {student.name.charAt(0).toUpperCase()}
-            </div>
+            {student.photoUrl
+              ? <img src={student.photoUrl} alt={student.name} className="w-14 h-14 rounded-2xl object-cover border border-border shrink-0" />
+              : <div className="flex items-center justify-center w-14 h-14 rounded-2xl bg-primary/10 border border-primary/20 text-xl font-black text-primary shrink-0">
+                  {student.name.charAt(0).toUpperCase()}
+                </div>
+            }
             <div>
               <h1 className="text-lg font-black text-foreground">{student.name}</h1>
               <p className="text-sm text-muted-foreground">{student.category.toUpperCase()} · {student.age} anos</p>
@@ -161,6 +183,38 @@ export default function PortalPage() {
             </div>
           </div>
         </div>
+
+        {/* Upcoming schedules */}
+        {upcomingSchedules.length > 0 && (
+          <div className="rounded-2xl border border-border/50 bg-card p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <CalendarCheck className="w-4 h-4 text-primary" />
+              <p className="text-sm font-semibold text-foreground">Próximos eventos</p>
+            </div>
+            <div className="space-y-2">
+              {upcomingSchedules.map(s => {
+                const d = toDate(s.date);
+                const isGame = s.type === "jogo";
+                return (
+                  <div key={s.id} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 border ${isGame ? "border-amber-500/30 bg-amber-500/5" : "border-blue-500/20 bg-blue-500/5"}`}>
+                    <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${isGame ? "bg-amber-500/15" : "bg-blue-500/15"}`}>
+                      {isGame ? <Swords className="w-4 h-4 text-amber-400" /> : <Dumbbell className="w-4 h-4 text-blue-400" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">{s.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {d?.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" })} · {s.time} · {s.location}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full ${isGame ? "bg-amber-500/20 text-amber-400" : "bg-blue-500/20 text-blue-400"}`}>
+                      {isGame ? "JOGO" : "TREINO"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Payment status this month */}
         <div className={`rounded-2xl border p-5 ${

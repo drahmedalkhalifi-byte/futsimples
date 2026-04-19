@@ -18,6 +18,8 @@ interface DashboardData {
   activeStudents: number;
   pendingPayments: number;
   upcomingGames: number;
+  paymentsThisMonthCount: number;
+  birthdaysToday: { name: string }[];
   studentsByCategory: { categoria: string; alunos: number }[];
   monthlyRevenue: { mes: string; receita: number }[];
   loading: boolean;
@@ -32,6 +34,8 @@ export function useDashboard(): DashboardData {
     activeStudents: 0,
     pendingPayments: 0,
     upcomingGames: 0,
+    paymentsThisMonthCount: 0,
+    birthdaysToday: [],
     studentsByCategory: [],
     monthlyRevenue: [],
     loading: true,
@@ -108,8 +112,9 @@ export function useDashboard(): DashboardData {
           return { mes: `${MONTH_SHORT[Number(mo) - 1]}/${y.slice(2)}`, receita: monthlyRevenueMap[key] };
         });
 
-        // Pending payments count
+        // Pending payments count + this month total count
         let pendingPayments = 0;
+        let paymentsThisMonthCount = 0;
         try {
           const pendingSnap = await getDocs(
             query(
@@ -119,9 +124,21 @@ export function useDashboard(): DashboardData {
             )
           );
           pendingPayments = pendingSnap.size;
+          paymentsThisMonthCount += pendingSnap.docs.filter(d => d.data().month === month).length;
         } catch {
           // payments collection may not exist yet
         }
+        paymentsThisMonthCount += Math.round(revenueThisMonth > 0 ? 1 : 0); // rough check via revenue
+
+        // Birthdays today
+        const todayMD = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        const birthdaysToday: { name: string }[] = [];
+        studentsSnap.forEach((doc) => {
+          const bd = doc.data().birthDate as string | undefined;
+          if (bd && bd.slice(5) === todayMD) {
+            birthdaysToday.push({ name: doc.data().name as string });
+          }
+        });
 
         // Expenses this month — one-time expenses with date in current month
         let expensesThisMonth = 0;
@@ -177,6 +194,8 @@ export function useDashboard(): DashboardData {
           activeStudents,
           pendingPayments,
           upcomingGames,
+          paymentsThisMonthCount,
+          birthdaysToday,
           studentsByCategory,
           monthlyRevenue,
           loading: false,

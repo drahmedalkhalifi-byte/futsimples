@@ -1,6 +1,7 @@
 "use client";
 
-import { DollarSign, TrendingDown, TrendingUp, Users, AlertTriangle, Loader2, Trophy } from "lucide-react";
+import { DollarSign, TrendingDown, TrendingUp, Users, AlertTriangle, Loader2, Trophy, PartyPopper, CalendarCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useDashboard } from "@/hooks/use-dashboard";
 import { StudentsChart } from "@/components/dashboard/students-chart";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
@@ -63,11 +64,15 @@ export default function DashboardPage() {
     netThisMonth,
     activeStudents,
     pendingPayments,
+    paymentsThisMonthCount,
+    birthdaysToday,
     studentsByCategory,
     monthlyRevenue,
     loading,
   } = useDashboard();
   const { user } = useAuth();
+  const router = useRouter();
+  const dayOfMonth = new Date().getDate();
 
   if (loading) {
     return (
@@ -106,6 +111,40 @@ export default function DashboardPage() {
           </div>
         )}
       </div>
+
+      {/* Lembrete: gerar mensalidades (dias 1-7 sem pagamentos no mês) */}
+      {!loading && dayOfMonth <= 7 && paymentsThisMonthCount === 0 && activeStudents > 0 && (
+        <div className="flex items-center justify-between gap-4 rounded-xl border border-blue-500/30 bg-blue-500/5 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <CalendarCheck className="w-5 h-5 text-blue-400 shrink-0" />
+            <div>
+              <p className="text-sm font-semibold text-blue-300">Mensalidades deste mês ainda não foram geradas</p>
+              <p className="text-xs text-blue-400/70 mt-0.5">Gere as cobranças agora para não perder receita.</p>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push("/pagamentos")}
+            className="shrink-0 rounded-lg bg-blue-500 hover:bg-blue-600 text-white text-sm font-semibold px-4 py-2 transition-colors"
+          >
+            Gerar agora
+          </button>
+        </div>
+      )}
+
+      {/* Aniversários do dia */}
+      {!loading && birthdaysToday.length > 0 && (
+        <div className="flex items-center gap-3 rounded-xl border border-pink-500/30 bg-pink-500/5 px-5 py-4">
+          <PartyPopper className="w-5 h-5 text-pink-400 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-pink-300">
+              🎂 {birthdaysToday.length === 1
+                ? `${birthdaysToday[0].name} faz aniversário hoje!`
+                : `${birthdaysToday.map(b => b.name).join(", ")} fazem aniversário hoje!`}
+            </p>
+            <p className="text-xs text-pink-400/70 mt-0.5">Que tal mandar uma mensagem de parabéns?</p>
+          </div>
+        </div>
+      )}
 
       {/* Onboarding checklist — shown to new users until all steps done */}
       <OnboardingChecklist activeStudents={activeStudents} />

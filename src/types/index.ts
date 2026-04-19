@@ -49,6 +49,8 @@ export interface Student {
   schoolId: string;
   name: string;
   age: number;
+  birthDate?: string; // YYYY-MM-DD
+  photoUrl?: string;
   category: StudentCategory;
   guardian: string;
   phone: string;

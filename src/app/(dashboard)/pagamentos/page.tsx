@@ -47,6 +47,7 @@ import { formatWhatsAppNumber } from "@/lib/utils";
 import { usePayments } from "@/hooks/use-payments";
 import { useStudents } from "@/hooks/use-students";
 import { useAuth } from "@/contexts/auth-context";
+import { RelatorioPDF } from "@/components/relatorio/relatorio-mensal";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import type { Payment, PaymentType, StudentCategory } from "@/types";
@@ -114,7 +115,7 @@ function persistCobradoHoje(id: string): void {
   } catch {}
 }
 
-// ─── WhatsApp URL ─────────────────────────────────────────────────────────────
+// ─── WhatsApp URLs ─────────────────────────────────────────────────────────────
 
 function whatsappUrl(
   studentName: string, guardian: string, phone: string,
@@ -126,6 +127,16 @@ function whatsappUrl(
   const pixLine = pixKey ? `\n\nChave PIX: *${pixKey}*` : "";
   const text = encodeURIComponent(
     `Ola, ${guardian}! A mensalidade de *${studentName}* esta *pendente* no valor de *${formattedAmount}* com vencimento em *${formattedDate}*.${pixLine}\n\nContamos com voce para regularizar! Qualquer duvida, e so chamar.`
+  );
+  return `https://wa.me/${number}?text=${text}`;
+}
+
+function whatsappReceiptUrl(studentName: string, guardian: string, phone: string, amount: number): string {
+  const number = formatWhatsAppNumber(phone);
+  const formattedAmount = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(amount);
+  const month = new Date().toLocaleString("pt-BR", { month: "long", year: "numeric" });
+  const text = encodeURIComponent(
+    `Ola, ${guardian}! Confirmamos o recebimento da mensalidade de *${studentName}* no valor de *${formattedAmount}* referente a *${month}*. Obrigado! ✅`
   );
   return `https://wa.me/${number}?text=${text}`;
 }
@@ -627,7 +638,17 @@ export default function PagamentosPage() {
           : null;
         toast.success(
           `💰 ${payment.studentName} pagou!${valor ? ` ${valor} no caixa.` : ""}`,
-          { description: "Tá chegando! Continue assim 💪" }
+          {
+            description: "Tá chegando! Continue assim 💪",
+            action: (() => {
+              const contact = studentPhoneMap[payment.studentId];
+              if (!contact?.phone) return undefined;
+              return {
+                label: "Enviar recibo WhatsApp",
+                onClick: () => window.open(whatsappReceiptUrl(payment.studentName, contact.guardian, contact.phone, payment.amount), "_blank"),
+              };
+            })(),
+          }
         );
       } else {
         await markAsPending(payment.id);
@@ -698,6 +719,7 @@ export default function PagamentosPage() {
         </div>
         {canManage && (
           <div className="flex flex-wrap gap-2">
+            <RelatorioPDF />
             <GerarMensalidades onGenerate={handleGeneratePayments} />
             <PaymentForm onSubmit={createPayment} />
           </div>
@@ -747,16 +769,32 @@ export default function PagamentosPage() {
             </div>
 
             {overduePayments.length > 0 && canManage && (
-              <button
-                onClick={handleCobrarAtrasados}
-                disabled={cobrandoAtrasados}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 hover:bg-red-600 active:scale-95 px-5 py-3 text-sm font-bold text-white transition-all shrink-0 shadow-lg shadow-red-500/25 disabled:opacity-70 disabled:cursor-not-allowed"
-              >
-                {cobrandoAtrasados
-                  ? <><Loader2 className="w-4 h-4 animate-spin" />Abrindo...</>
-                  : <><AlertTriangle className="w-4 h-4" />Cobrar {overduePayments.length} atrasado{overduePayments.length !== 1 ? "s" : ""}</>
-                }
-              </button>
+              <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                <button
+                  onClick={() => {
+                    const mes = new Date().toLocaleString("pt-BR", { month: "long", year: "numeric" });
+                    const total = formatCurrency(totalPendingAll);
+                    const linhas = overduePayments.slice(0, 10).map((p) => `• ${p.studentName}: ${formatCurrency(p.amount ?? 0)}`).join("\n");
+                    const mais = overduePayments.length > 10 ? `\n+${overduePayments.length - 10} mais...` : "";
+                    const texto = encodeURIComponent(`📋 *Relatório de Inadimplência — ${mes}*\n\n${linhas}${mais}\n\n*Total: ${total}*`);
+                    window.open(`https://wa.me/?text=${texto}`, "_blank");
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-300/50 bg-white/10 hover:bg-white/20 px-4 py-2.5 text-sm font-semibold text-red-300 transition-all shrink-0"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Relatório
+                </button>
+                <button
+                  onClick={handleCobrarAtrasados}
+                  disabled={cobrandoAtrasados}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 hover:bg-red-600 active:scale-95 px-5 py-2.5 text-sm font-bold text-white transition-all shrink-0 shadow-lg shadow-red-500/25 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {cobrandoAtrasados
+                    ? <><Loader2 className="w-4 h-4 animate-spin" />Abrindo...</>
+                    : <><AlertTriangle className="w-4 h-4" />Cobrar {overduePayments.length} atrasado{overduePayments.length !== 1 ? "s" : ""}</>
+                  }
+                </button>
+              </div>
             )}
           </div>
         </div>
