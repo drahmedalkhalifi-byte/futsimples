@@ -78,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                   } else if (trialStarted) {
                     const msPerDay = 86_400_000;
                     const elapsed = Date.now() - trialStarted.getTime();
-                    const daysLeft = 14 - Math.floor(elapsed / msPerDay);
+                    const daysLeft = 7 - Math.floor(elapsed / msPerDay);
                     if (daysLeft > 0) {
                       subscriptionStatus = "trial";
                       trialDaysLeft = daysLeft;
@@ -129,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         if (rawStatus === "active") {
                           subscriptionStatus = "active";
                         } else if (trialStarted) {
-                          const daysLeft = 14 - Math.floor((Date.now() - trialStarted.getTime()) / 86_400_000);
+                          const daysLeft = 7 - Math.floor((Date.now() - trialStarted.getTime()) / 86_400_000);
                           subscriptionStatus = daysLeft > 0 ? "trial" : "expired";
                           trialDaysLeft = Math.max(0, daysLeft);
                         } else {

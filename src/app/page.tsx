@@ -42,7 +42,7 @@ export default function Home() {
   const faqs = [
     {
       q: "Como funciona o teste grátis?",
-      a: "Você cria sua conta agora e tem 14 dias para usar o sistema completo sem pagar nada e sem precisar de cartão de crédito. Se gostar, assina. Se não gostar, cancela e não paga nada.",
+      a: "Você cria sua conta agora e tem 7 dias para usar o sistema completo sem pagar nada e sem precisar de cartão de crédito. Se gostar, assina. Se não gostar, cancela e não paga nada.",
     },
     {
       q: "Qual a diferença entre mensal e anual?",
@@ -119,14 +119,14 @@ export default function Home() {
           </p>
 
           <p className="text-sm text-emerald-400 font-semibold mb-10">
-            ✓ 14 dias grátis sem pagar nada &nbsp;·&nbsp; ✓ Depois: Cartão ou Boleto &nbsp;·&nbsp; ✓ Cancele quando quiser
+            ✓ 7 dias grátis sem pagar nada &nbsp;·&nbsp; ✓ Depois: Cartão ou Boleto &nbsp;·&nbsp; ✓ Cancele quando quiser
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link href="/setup" className="relative group w-full sm:w-auto">
               <div className="absolute inset-0 bg-emerald-500 rounded-2xl blur-md opacity-60 group-hover:opacity-100 transition-opacity" />
               <span className="relative inline-flex items-center justify-center gap-2 w-full sm:w-auto rounded-2xl bg-gradient-to-r from-emerald-500 to-green-400 px-8 py-4 text-base font-bold text-white shadow-2xl shadow-emerald-500/30 hover:from-emerald-400 hover:to-green-300 transition-all">
-                Começar grátis — 14 dias
+                Começar grátis — 7 dias
                 <ArrowRight className="w-5 h-5" />
               </span>
             </Link>
@@ -139,7 +139,7 @@ export default function Home() {
           <div className="flex flex-wrap items-center justify-center gap-8 mt-16">
             {[
               { icon: Smartphone, value: "100%", label: "Pelo celular" },
-              { icon: Star, value: "14 dias", label: "Grátis para testar" },
+              { icon: Star, value: "7 dias", label: "Grátis para testar" },
               { icon: CheckCircle2, value: "Stripe", label: "Cartão ou Boleto" },
             ].map((s) => (
               <div key={s.label} className="flex items-center gap-2.5">
@@ -211,7 +211,7 @@ export default function Home() {
         <section className="max-w-4xl mx-auto px-4 py-20" id="planos">
           <div className="text-center mb-10">
             <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">Escolha seu plano</h2>
-            <p className="text-white/40">14 dias grátis em qualquer plano. Sem cartão para começar.</p>
+            <p className="text-white/40">7 dias grátis em qualquer plano. Sem cartão para começar.</p>
           </div>
 
           {/* Toggle */}
@@ -255,7 +255,7 @@ export default function Home() {
                 ))}
               </ul>
               <Link href="/setup" className="block w-full text-center rounded-xl border border-emerald-500/50 text-emerald-400 font-semibold py-3 text-sm hover:bg-emerald-500/10 transition-all">
-                Testar 14 dias grátis
+                Testar 7 dias grátis
               </Link>
             </div>
 
@@ -283,7 +283,7 @@ export default function Home() {
               <Link href="/setup" className="relative group block">
                 <div className="absolute inset-0 bg-emerald-500 rounded-xl blur opacity-40 group-hover:opacity-70 transition-opacity" />
                 <span className="relative flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-emerald-500 to-green-400 py-3 text-sm font-bold text-white">
-                  Testar 14 dias grátis
+                  Testar 7 dias grátis
                   <ArrowRight className="w-4 h-4" />
                 </span>
               </Link>
@@ -344,7 +344,7 @@ export default function Home() {
         <section className="py-24 px-4 text-center">
           <div className="max-w-2xl mx-auto">
             <h2 className="text-3xl sm:text-5xl font-black text-white mb-4 leading-tight">
-              Testa grátis por 14 dias.<br />
+              Testa grátis por 7 dias.<br />
               <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
                 Sem cartão. Sem risco.
               </span>
@@ -359,7 +359,7 @@ export default function Home() {
                 <ArrowRight className="w-5 h-5" />
               </span>
             </Link>
-            <p className="text-white/25 text-sm mt-4">14 dias grátis · Pagamento via Stripe (Cartão de crédito ou Boleto) · Cancele quando quiser</p>
+            <p className="text-white/25 text-sm mt-4">7 dias grátis · Pagamento via Stripe (Cartão de crédito ou Boleto) · Cancele quando quiser</p>
           </div>
         </section>
 
@@ -397,8 +397,8 @@ export default function Home() {
             "operatingSystem": "Web",
             "description": "Sistema de gestão completo para escolinhas de futebol. Controle alunos, pagamentos, inadimplência, presença e relatórios financeiros.",
             "offers": [
-              { "@type": "Offer", "price": "59.90", "priceCurrency": "BRL", "description": "Plano Mensal — 14 dias grátis" },
-              { "@type": "Offer", "price": "599.00", "priceCurrency": "BRL", "description": "Plano Anual — 14 dias grátis, 2 meses grátis" },
+              { "@type": "Offer", "price": "59.90", "priceCurrency": "BRL", "description": "Plano Mensal — 7 dias grátis" },
+              { "@type": "Offer", "price": "599.00", "priceCurrency": "BRL", "description": "Plano Anual — 7 dias grátis, 2 meses grátis" },
             ],
             "url": "https://futsimples.netlify.app",
             "inLanguage": "pt-BR",

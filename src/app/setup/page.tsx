@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   createUserWithEmailAndPassword,
+  sendEmailVerification,
 } from "firebase/auth";
 import {
   doc,
@@ -122,16 +123,10 @@ export default function SetupPage() {
       }
       updateLastLog("done");
 
-      // 5. Send welcome email (fire-and-forget — don't block setup on email failure)
-      fetch("/api/email/welcome", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          to: adminEmail.trim(),
-          adminName: adminName.trim(),
-          schoolName: schoolName.trim(),
-        }),
-      }).catch(() => { /* non-critical */ });
+      // 5. Send Firebase email verification (native, reliable, no Resend needed)
+      try {
+        await sendEmailVerification(cred.user);
+      } catch { /* non-critical — user can resend later */ }
 
       setStep("done");
     } catch (err: unknown) {
@@ -284,35 +279,20 @@ export default function SetupPage() {
                 </div>
                 <div>
                   <h3 className="text-base font-semibold text-foreground">
-                    Tudo pronto!
+                    Conta criada! Confirme seu e-mail
                   </h3>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Sua escola foi configurada com sucesso. Você já pode acessar o sistema.
+                    Enviamos um link de confirmação para <strong>{adminEmail}</strong>. Clique no link e depois acesse o sistema.
                   </p>
                 </div>
-                <div className="space-y-3">
-                  {logs.map((log, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-                      <span className="text-sm text-foreground">
-                        {log.message}
-                      </span>
-                    </div>
-                  ))}
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800">
+                  Verifique sua caixa de entrada (e a pasta de spam, por precaução).
                 </div>
                 <Button
                   className="w-full"
-                  onClick={() => router.push("/dashboard")}
-                  disabled={!isReady}
+                  onClick={() => router.push("/verificar-email")}
                 >
-                  {!isReady ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Preparando...
-                    </>
-                  ) : (
-                    "Ir para o Dashboard"
-                  )}
+                  Já confirmei meu e-mail →
                 </Button>
               </div>
             )}

@@ -22,6 +22,10 @@ export default function DashboardLayout({
       router.replace("/login");
       return;
     }
+    if (firebaseUser && !firebaseUser.emailVerified) {
+      router.replace("/verificar-email");
+      return;
+    }
     if (firebaseUser && !schoolId && !error) {
       router.replace("/setup");
     }
