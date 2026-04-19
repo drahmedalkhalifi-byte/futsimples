@@ -6,7 +6,7 @@ import Link from "next/link";
 import {
   Trophy, Users, CreditCard, CalendarCheck, FileBarChart,
   CalendarDays, Receipt, CheckCircle2, ArrowRight, Loader2,
-  Star, Clock, AlertTriangle, ChevronDown, ChevronUp, Smartphone,
+  Star, Clock, AlertTriangle, ChevronDown, ChevronUp, X,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 import { AnimatedBackground } from "@/components/landing/animated-bg";
@@ -41,28 +41,28 @@ export default function Home() {
 
   const faqs = [
     {
-      q: "Como funciona o teste grátis?",
-      a: "Você cria sua conta agora e tem 7 dias para usar o sistema completo sem pagar nada e sem precisar de cartão de crédito. Se gostar, assina. Se não gostar, cancela e não paga nada.",
+      q: "Preciso de cartão de crédito para testar?",
+      a: "Não. Cria sua conta agora e usa tudo por 7 dias sem colocar nenhum dado de pagamento. Só pede cartão ou boleto se você decidir continuar.",
     },
     {
-      q: "Qual a diferença entre mensal e anual?",
-      a: "No plano anual você paga R$599 uma vez por ano — equivalente a R$49,92/mês — e economiza R$119,80 em relação ao mensal. Mesmas funcionalidades, só o preço muda.",
+      q: "Quanto tempo leva para configurar?",
+      a: "Em torno de 10 minutos. Cria a conta, cadastra seus alunos e já começa a usar. Não tem treinamento obrigatório, não tem implantação, não tem técnico para esperar.",
     },
     {
-      q: "Posso cancelar quando quiser?",
-      a: "Sim. Sem contrato, sem fidelidade, sem multa. Cancela a qualquer momento pelo painel do Stripe ou mandando mensagem pra gente.",
-    },
-    {
-      q: "Funciona pelo celular?",
-      a: "100%. O FutSimples foi pensado para ser usado no celular, no campo, em qualquer lugar. Não precisa instalar nada — abre direto no navegador.",
+      q: "Funciona no celular?",
+      a: "100%. O FutSimples foi feito para ser usado na beira do campo, no celular. Não precisa instalar nada — abre direto no navegador como qualquer site.",
     },
     {
       q: "Quantos alunos posso cadastrar?",
-      a: "Alunos ilimitados. Não importa se sua escolinha tem 20 ou 300 alunos — o sistema suporta tudo sem custo extra.",
+      a: "Ilimitados. Não importa se tem 15 ou 400 alunos — o preço é o mesmo.",
     },
     {
-      q: "Meus dados ficam seguros?",
-      a: "Sim. Os dados ficam no Google Firebase, mesma infraestrutura de milhares de empresas no mundo. Cada escola acessa apenas os próprios dados.",
+      q: "E se eu não gostar?",
+      a: "Cancela dentro dos 7 dias e não paga nada. Sem email de cobrança, sem multa, sem explicação necessária. Fácil assim.",
+    },
+    {
+      q: "Qual a diferença entre mensal e anual?",
+      a: "No anual você paga R$599 uma vez por ano — equivale a R$49,92/mês — e economiza R$119,80. Mesmas funcionalidades. A diferença é só no seu bolso.",
     },
   ];
 
@@ -101,117 +101,238 @@ export default function Home() {
           </div>
         </header>
 
-        {/* ── Hero ── */}
-        <section className="pt-32 pb-20 px-4 text-center">
+        {/* ── HERO ── */}
+        <section className="pt-36 pb-20 px-4 text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold text-emerald-400 mb-8">
-            ⚽ Sistema de gestão para escolinhas de futebol
+            ⚽ Para donos de escolinha de futebol no Brasil
           </div>
 
           <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight leading-none mb-6 max-w-4xl mx-auto">
-            <span className="text-white">Pare de perder dinheiro</span>
+            <span className="text-white">Sua escolinha perde dinheiro</span>
             <span className="block mt-2 bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-              com inadimplência.
+              todo mês. E você sabe disso.
             </span>
           </h1>
 
-          <p className="text-lg sm:text-xl text-white/55 max-w-xl mx-auto mb-3 leading-relaxed">
-            Controle alunos, cobranças, presença e financeiro da sua escolinha — tudo simples, rápido e pelo celular.
+          <p className="text-lg sm:text-xl text-white/55 max-w-2xl mx-auto mb-4 leading-relaxed">
+            Mensalidades em atraso, presença no papel, cobrança um por um no WhatsApp. FutSimples resolve tudo isso em um sistema simples — sem precisar virar especialista em tecnologia.
           </p>
 
           <p className="text-sm text-emerald-400 font-semibold mb-10">
-            ✓ 7 dias grátis sem pagar nada &nbsp;·&nbsp; ✓ Depois: Cartão ou Boleto &nbsp;·&nbsp; ✓ Cancele quando quiser
+            Sem cartão de crédito · 7 dias grátis · Cancela quando quiser
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link href="/setup" className="relative group w-full sm:w-auto">
-              <div className="absolute inset-0 bg-emerald-500 rounded-2xl blur-md opacity-60 group-hover:opacity-100 transition-opacity" />
-              <span className="relative inline-flex items-center justify-center gap-2 w-full sm:w-auto rounded-2xl bg-gradient-to-r from-emerald-500 to-green-400 px-8 py-4 text-base font-bold text-white shadow-2xl shadow-emerald-500/30 hover:from-emerald-400 hover:to-green-300 transition-all">
-                Começar grátis — 7 dias
-                <ArrowRight className="w-5 h-5" />
-              </span>
-            </Link>
-            <Link href="/login" className="inline-flex items-center justify-center gap-2 w-full sm:w-auto rounded-2xl border border-white/10 bg-white/5 px-8 py-4 text-base font-semibold text-white/80 hover:bg-white/10 transition-all">
-              Já tenho conta
-            </Link>
-          </div>
+          <Link href="/setup" className="relative group inline-block">
+            <div className="absolute inset-0 bg-emerald-500 rounded-2xl blur-md opacity-60 group-hover:opacity-100 transition-opacity" />
+            <span className="relative inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-400 px-10 py-4 text-lg font-bold text-white shadow-2xl shadow-emerald-500/30 hover:from-emerald-400 hover:to-green-300 transition-all">
+              Quero testar grátis por 7 dias
+              <ArrowRight className="w-5 h-5" />
+            </span>
+          </Link>
+          <p className="text-xs text-white/25 mt-3">Não precisa de cartão. Cancela sem explicação.</p>
+        </section>
 
-          {/* Stats */}
-          <div className="flex flex-wrap items-center justify-center gap-8 mt-16">
+        {/* ── AGITAÇÃO — "Você ainda faz isso?" ── */}
+        <section className="max-w-3xl mx-auto px-4 py-16">
+          <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-8">
+            <h2 className="text-xl sm:text-2xl font-black text-white mb-2">
+              Se sua escolinha tem mais de 10 alunos, você provavelmente faz isso:
+            </h2>
+            <p className="text-white/40 text-sm mb-8">Anota mentalmente enquanto lê cada item abaixo.</p>
+
+            <div className="space-y-4">
+              {[
+                { text: "Manda cobrança de mensalidade um por um no WhatsApp, todo mês, do zero.", cost: "3 a 5 horas perdidas por mês" },
+                { text: "Não sabe de cabeça quantos alunos estão em atraso agora, nesse momento.", cost: "Dinheiro que você não sabe que perdeu" },
+                { text: "Registra presença no papel, no celular pessoal ou simplesmente não registra.", cost: "Sem histórico, sem controle" },
+                { text: "No fim do mês, tenta montar o resultado no Excel e os números não batem.", cost: "Decisões tomadas no escuro" },
+                { text: "Quando um pai pergunta sobre a frequência do filho, você não sabe de cabeça.", cost: "Credibilidade que você perde" },
+              ].map((item, i) => (
+                <div key={i} className="flex gap-4 items-start">
+                  <div className="w-5 h-5 rounded border-2 border-amber-500/60 bg-amber-500/10 flex items-center justify-center shrink-0 mt-0.5">
+                    <CheckCircle2 className="w-3 h-3 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-white/80 leading-relaxed">{item.text}</p>
+                    <p className="text-xs text-amber-400/70 mt-0.5">{item.cost}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-8 border-t border-white/8 pt-6">
+              <p className="text-sm text-white/60 leading-relaxed">
+                Isso não é falta de esforço. É o que acontece quando você tenta gerenciar uma empresa usando ferramentas de uso pessoal. <span className="text-white font-semibold">Planilha, caderno e WhatsApp não foram feitos para gerir escolinha.</span>
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {/* ── CUSTO DA INAÇÃO ── */}
+        <section className="max-w-4xl mx-auto px-4 py-8">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             {[
-              { icon: Smartphone, value: "100%", label: "Pelo celular" },
-              { icon: Star, value: "7 dias", label: "Grátis para testar" },
-              { icon: CheckCircle2, value: "Stripe", label: "Cartão ou Boleto" },
-            ].map((s) => (
-              <div key={s.label} className="flex items-center gap-2.5">
-                <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                  <s.icon className="w-4 h-4 text-emerald-400" />
+              { icon: AlertTriangle, color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20", title: "15% a 30% do faturamento", body: "É o que escolinhas sem controle perdem em inadimplência. Em uma escola com R$3.000/mês, são até R$900 que somem sem você perceber." },
+              { icon: Clock, color: "text-rose-400", bg: "bg-rose-500/10 border-rose-500/20", title: "4 horas por mês perdidas", body: "Só em cobranças manuais. Tempo que você poderia usar no campo, com alunos, ou simplesmente descansando." },
+              { icon: FileBarChart, color: "text-violet-400", bg: "bg-violet-500/10 border-violet-500/20", title: "0 decisões baseadas em dados", body: "Sem relatório real, você toma decisão no feeling. Quando percebe que está no prejuízo, já perdeu meses de faturamento." },
+            ].map((p, i) => (
+              <div key={i} className={`rounded-2xl border ${p.bg} p-5`}>
+                <div className="w-9 h-9 rounded-xl bg-black/20 flex items-center justify-center mb-3">
+                  <p.icon className={`w-4 h-4 ${p.color}`} />
                 </div>
-                <div className="text-left">
-                  <p className="text-sm font-bold text-white">{s.value}</p>
-                  <p className="text-xs text-white/40">{s.label}</p>
-                </div>
+                <h3 className="text-base font-bold text-white mb-2">{p.title}</h3>
+                <p className="text-sm text-white/55 leading-relaxed">{p.body}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* ── Problemas ── */}
-        <section className="max-w-4xl mx-auto px-4 py-16">
-          <h2 className="text-2xl sm:text-3xl font-black text-white text-center mb-3">
-            Você se identifica com isso?
-          </h2>
-          <p className="text-white/40 text-center mb-10">Problemas que todo dono de escolinha enfrenta sem sistema.</p>
+        {/* ── SOLUÇÃO — antes/depois ── */}
+        <section className="max-w-4xl mx-auto px-4 py-20">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">
+              Com FutSimples, isso muda em 10 minutos.
+            </h2>
+            <p className="text-white/40">Cada funcionalidade foi feita para substituir algo que dói no dia a dia.</p>
+          </div>
+
           <div className="space-y-4">
             {[
-              { icon: AlertTriangle, color: "text-amber-400", bg: "bg-amber-500/10 border-amber-500/20", title: "Não sabe quem está em atraso", body: "A inadimplência corrói entre 15% e 30% do faturamento — e você só percebe no fim do mês quando o dinheiro não fecha." },
-              { icon: Clock, color: "text-rose-400", bg: "bg-rose-500/10 border-rose-500/20", title: "Perde horas cobrando um por um", body: "Mensagem no WhatsApp, caderno, planilha... Tempo que deveria estar no campo você perde com burocracia." },
-              { icon: FileBarChart, color: "text-violet-400", bg: "bg-violet-500/10 border-violet-500/20", title: "Não sabe se está no lucro ou prejuízo", body: "Sem controle de despesas e receitas, você não sabe se a escolinha está crescendo ou se você está bancando do próprio bolso." },
-            ].map((p, i) => (
-              <div key={i} className={`rounded-2xl border ${p.bg} p-5 flex gap-4`}>
-                <div className="shrink-0 w-10 h-10 rounded-xl bg-black/20 flex items-center justify-center">
-                  <p.icon className={`w-5 h-5 ${p.color}`} />
-                </div>
-                <div>
-                  <h3 className="text-base font-bold text-white mb-1">{p.title}</h3>
-                  <p className="text-sm text-white/55 leading-relaxed">{p.body}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <p className="text-center text-emerald-400 font-semibold mt-8">O FutSimples resolve os três. Em menos de 10 minutos.</p>
-        </section>
-
-        {/* ── Funcionalidades ── */}
-        <section className="max-w-6xl mx-auto px-4 py-16">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">Tudo que você precisa</h2>
-            <p className="text-white/40">Desenvolvido para donos de escolinha de futebol no Brasil.</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[
-              { icon: CreditCard, color: "from-emerald-500 to-green-400", title: "Cobrança em lote", desc: "Veja todos os inadimplentes e dispare cobranças no WhatsApp com sua chave PIX incluída. 2 minutos no lugar de 2 horas." },
-              { icon: Users, color: "from-blue-500 to-cyan-400", title: "Gestão de alunos", desc: "Cadastro completo com ficha médica, responsável, categoria e histórico. Tudo no celular." },
-              { icon: CalendarCheck, color: "from-violet-500 to-purple-400", title: "Presença digital", desc: "Marque presença por treino e categoria. O responsável acompanha o filho pelo portal sem ligar pra você." },
-              { icon: CalendarDays, color: "from-orange-500 to-amber-400", title: "Agenda de treinos", desc: "Organize treinos e jogos. Professores veem a agenda deles sem precisar perguntar toda semana." },
-              { icon: Receipt, color: "from-rose-500 to-pink-400", title: "Controle financeiro", desc: "Receitas, despesas, resultado líquido. Sabe no final do mês se teve lucro ou prejuízo — com número real." },
-              { icon: FileBarChart, color: "from-cyan-500 to-teal-400", title: "Relatório em PDF", desc: "Exporta o relatório financeiro do mês em PDF para guardar no histórico ou mostrar pro contador." },
+              {
+                icon: CreditCard,
+                color: "from-emerald-500 to-green-400",
+                before: "Cobra inadimplente um por um no WhatsApp, todo mês, sem parar.",
+                after: "Vê todos os atrasados numa tela e dispara cobrança com PIX em 2 minutos. Para todos de uma vez.",
+                label: "Cobrança em lote"
+              },
+              {
+                icon: Users,
+                color: "from-blue-500 to-cyan-400",
+                before: "Alunos espalhados em caderno, celular pessoal, cabeça e papelzinho na gaveta.",
+                after: "Cadastro completo: nome, responsável, categoria, ficha médica. Tudo num lugar, acessível no celular.",
+                label: "Gestão de alunos"
+              },
+              {
+                icon: CalendarCheck,
+                color: "from-violet-500 to-purple-400",
+                before: "Presença no papel. Pai liga perguntando se o filho foi ao treino e você não sabe responder.",
+                after: "Presença marcada digital. Pai acompanha direto pelo portal do responsável — sem ligar pra você.",
+                label: "Presença digital"
+              },
+              {
+                icon: Receipt,
+                color: "from-rose-500 to-pink-400",
+                before: "No fim do mês você tenta fechar as contas e os números não batem. Você não sabe se teve lucro.",
+                after: "Receitas e despesas no sistema. Resultado real do mês em um clique, exportável em PDF.",
+                label: "Controle financeiro"
+              },
             ].map((f) => (
-              <div key={f.title} className="rounded-2xl border border-white/5 bg-white/[0.03] p-6 hover:border-white/10 hover:bg-white/[0.06] transition-all">
-                <div className={`mb-4 inline-flex items-center justify-center w-11 h-11 rounded-xl bg-gradient-to-br ${f.color} shadow-lg`}>
-                  <f.icon className="w-5 h-5 text-white" />
+              <div key={f.label} className="rounded-2xl border border-white/5 bg-white/[0.03] p-5 sm:p-6">
+                <div className="flex gap-4 items-start">
+                  <div className={`shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br ${f.color} shadow-lg`}>
+                    <f.icon className="w-4 h-4 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider mb-3">{f.label}</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="rounded-xl bg-rose-500/5 border border-rose-500/15 p-3">
+                        <p className="text-xs font-bold text-rose-400 mb-1.5">Hoje</p>
+                        <p className="text-sm text-white/55 leading-relaxed">{f.before}</p>
+                      </div>
+                      <div className="rounded-xl bg-emerald-500/5 border border-emerald-500/20 p-3">
+                        <p className="text-xs font-bold text-emerald-400 mb-1.5">Com FutSimples</p>
+                        <p className="text-sm text-white/80 leading-relaxed">{f.after}</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-base font-bold text-white mb-2">{f.title}</h3>
-                <p className="text-sm text-white/40 leading-relaxed">{f.desc}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* ── Pricing ── */}
+        {/* ── COMO FUNCIONA ── */}
+        <section className="max-w-4xl mx-auto px-4 py-16">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl sm:text-3xl font-black text-white mb-3">Começa agora. Funciona hoje.</h2>
+            <p className="text-white/40">Sem implantação. Sem técnico. Sem treinamento obrigatório.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+            {[
+              { step: "01", title: "Cria sua conta grátis", desc: "2 minutos. Só email e senha. Nenhum dado de pagamento pedido agora." },
+              { step: "02", title: "Cadastra seus alunos", desc: "Nome, categoria, responsável. Depois vai adicionando os detalhes no seu ritmo." },
+              { step: "03", title: "Usa no celular, no campo", desc: "Presença, cobrança, financeiro. Onde você estiver, quando precisar." },
+            ].map((s) => (
+              <div key={s.step} className="rounded-2xl border border-white/5 bg-white/[0.03] p-6">
+                <div className="text-4xl font-black text-emerald-500/20 mb-3">{s.step}</div>
+                <h3 className="text-base font-bold text-white mb-2">{s.title}</h3>
+                <p className="text-sm text-white/40 leading-relaxed">{s.desc}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-10 text-center">
+            <Link href="/setup" className="relative group inline-block">
+              <div className="absolute inset-0 bg-emerald-500 rounded-2xl blur-md opacity-50 group-hover:opacity-80 transition-opacity" />
+              <span className="relative inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-400 px-8 py-3.5 text-base font-bold text-white shadow-xl shadow-emerald-500/20">
+                Começar agora — é grátis
+                <ArrowRight className="w-4 h-4" />
+              </span>
+            </Link>
+          </div>
+        </section>
+
+        {/* ── PARA QUEM É ── */}
+        <section className="max-w-3xl mx-auto px-4 py-16">
+          <h2 className="text-2xl sm:text-3xl font-black text-white text-center mb-10">
+            Para quem é o FutSimples
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-6">
+              <p className="text-sm font-bold text-emerald-400 uppercase tracking-wider mb-4">É pra você se...</p>
+              <ul className="space-y-3">
+                {[
+                  "Tem escolinha com 10 ou mais alunos",
+                  "Cobra mensalidade todo mês",
+                  "Quer saber quem está em atraso sem precisar calcular",
+                  "Quer parar de usar planilha, caderno ou WhatsApp para tudo",
+                  "Quer registrar presença de forma rápida e digital",
+                  "Quer um relatório real no fim do mês",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm text-white/75">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-6">
+              <p className="text-sm font-bold text-white/40 uppercase tracking-wider mb-4">Não é pra você se...</p>
+              <ul className="space-y-3">
+                {[
+                  "Você quer um sistema de ERP empresarial complexo",
+                  "Você não cobra mensalidade dos seus alunos",
+                  "Você prefere planilha e está satisfeito com ela",
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm text-white/35">
+                    <X className="w-4 h-4 text-white/25 shrink-0 mt-0.5" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+              <div className="mt-6 pt-5 border-t border-white/8">
+                <p className="text-xs text-white/30 leading-relaxed">O FutSimples foi feito para ser simples. Não tentamos resolver tudo — resolvemos o que mais dói para donos de escolinha.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── PRICING ── */}
         <section className="max-w-4xl mx-auto px-4 py-20" id="planos">
           <div className="text-center mb-10">
-            <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">Escolha seu plano</h2>
-            <p className="text-white/40">7 dias grátis em qualquer plano. Sem cartão para começar.</p>
+            <h2 className="text-3xl sm:text-4xl font-black text-white mb-3">Quanto custa?</h2>
+            <p className="text-white/40">Menos do que você perde em inadimplência em um único mês.</p>
           </div>
 
           {/* Toggle */}
@@ -245,9 +366,17 @@ export default function Home() {
                 <span className="text-xl font-bold text-white">,90</span>
                 <span className="text-sm text-white/40 mb-1">/mês</span>
               </div>
-              <p className="text-xs text-white/30 mb-6">Cobrado mensalmente</p>
+              <p className="text-xs text-white/30 mb-6">Cobrado mensalmente. Cancela quando quiser.</p>
               <ul className="space-y-2.5 mb-6">
-                {["Alunos ilimitados","Cobrança em lote WhatsApp","Portal do responsável","Controle de presença","Agenda de treinos","Relatório financeiro PDF","Convite de professores"].map((item) => (
+                {[
+                  "Alunos ilimitados",
+                  "Cobrança em lote com PIX",
+                  "Portal do responsável",
+                  "Controle de presença digital",
+                  "Agenda de treinos",
+                  "Relatório financeiro PDF",
+                  "Convite de professores",
+                ].map((item) => (
                   <li key={item} className="flex items-center gap-2 text-sm text-white/70">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     {item}
@@ -273,7 +402,15 @@ export default function Home() {
               </div>
               <p className="text-xs text-emerald-400 font-semibold mb-6">Equivale a R$49,92/mês · Economize R$119,80</p>
               <ul className="space-y-2.5 mb-6">
-                {["Alunos ilimitados","Cobrança em lote WhatsApp","Portal do responsável","Controle de presença","Agenda de treinos","Relatório financeiro PDF","Convite de professores"].map((item) => (
+                {[
+                  "Alunos ilimitados",
+                  "Cobrança em lote com PIX",
+                  "Portal do responsável",
+                  "Controle de presença digital",
+                  "Agenda de treinos",
+                  "Relatório financeiro PDF",
+                  "Convite de professores",
+                ].map((item) => (
                   <li key={item} className="flex items-center gap-2 text-sm text-white/70">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     {item}
@@ -293,30 +430,10 @@ export default function Home() {
           <p className="text-center text-xs text-white/30 mt-6">Pagamento via Stripe · Cartão de crédito ou Boleto bancário · Cancele quando quiser</p>
         </section>
 
-        {/* ── Como funciona ── */}
-        <section className="max-w-4xl mx-auto px-4 py-16">
-          <div className="text-center mb-12">
-            <h2 className="text-2xl sm:text-3xl font-black text-white mb-3">Como funciona</h2>
-            <p className="text-white/40">Em menos de 10 minutos sua escolinha está organizada.</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-            {[
-              { step: "01", title: "Cria sua conta", desc: "Cadastra sua escolinha em 2 minutos. Sem burocracia, sem cartão." },
-              { step: "02", title: "Cadastra seus alunos", desc: "Adiciona alunos com categoria, responsável e ficha médica." },
-              { step: "03", title: "Gerencia pelo celular", desc: "Pagamentos, presença, cobranças — tudo na palma da mão." },
-            ].map((s) => (
-              <div key={s.step} className="rounded-2xl border border-white/5 bg-white/[0.03] p-6">
-                <div className="text-4xl font-black text-emerald-500/20 mb-3">{s.step}</div>
-                <h3 className="text-base font-bold text-white mb-2">{s.title}</h3>
-                <p className="text-sm text-white/40 leading-relaxed">{s.desc}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* ── FAQ ── */}
+        {/* ── OBJEÇÕES / FAQ ── */}
         <section className="max-w-3xl mx-auto px-4 py-16">
-          <h2 className="text-2xl sm:text-3xl font-black text-white text-center mb-10">Perguntas frequentes</h2>
+          <h2 className="text-2xl sm:text-3xl font-black text-white text-center mb-3">Perguntas frequentes</h2>
+          <p className="text-white/40 text-center text-sm mb-10">Se ainda tem dúvida, a resposta provavelmente está aqui.</p>
           <div className="space-y-3">
             {faqs.map((faq, i) => (
               <div key={i} className="rounded-2xl border border-white/8 bg-white/[0.03] overflow-hidden">
@@ -340,26 +457,40 @@ export default function Home() {
           </div>
         </section>
 
-        {/* ── CTA Final ── */}
-        <section className="py-24 px-4 text-center">
-          <div className="max-w-2xl mx-auto">
+        {/* ── CTA FINAL ── */}
+        <section className="py-24 px-4">
+          <div className="max-w-2xl mx-auto text-center">
+
             <h2 className="text-3xl sm:text-5xl font-black text-white mb-4 leading-tight">
-              Testa grátis por 7 dias.<br />
-              <span className="bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
-                Sem cartão. Sem risco.
-              </span>
+              Cada mês que você espera é mais um mês perdendo dinheiro.
             </h2>
-            <p className="text-white/40 text-lg mb-10">
-              Se gostar, assina por R$59,90/mês ou R$599/ano. Se não gostar, não paga nada.
+            <p className="text-white/40 text-lg mb-4">
+              Teste agora. 7 dias grátis. Sem cartão. Se não resolver, não paga nada.
             </p>
+            <p className="text-emerald-400 font-semibold text-sm mb-10">
+              A configuração inteira leva menos de 10 minutos.
+            </p>
+
             <Link href="/setup" className="relative group inline-block">
               <div className="absolute inset-0 bg-emerald-500 rounded-2xl blur-lg opacity-60 group-hover:opacity-100 transition-opacity" />
               <span className="relative inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-emerald-500 to-green-400 px-10 py-4 text-lg font-bold text-white shadow-2xl shadow-emerald-500/30 hover:from-emerald-400 hover:to-green-300 transition-all">
-                Quero testar grátis agora
+                Quero começar agora — é grátis
                 <ArrowRight className="w-5 h-5" />
               </span>
             </Link>
-            <p className="text-white/25 text-sm mt-4">7 dias grátis · Pagamento via Stripe (Cartão de crédito ou Boleto) · Cancele quando quiser</p>
+
+            <div className="flex items-center justify-center gap-6 mt-8 flex-wrap">
+              {[
+                "Sem cartão de crédito",
+                "7 dias grátis",
+                "Cancela quando quiser",
+              ].map((item) => (
+                <span key={item} className="flex items-center gap-1.5 text-xs text-white/30">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500/50" />
+                  {item}
+                </span>
+              ))}
+            </div>
           </div>
         </section>
 
