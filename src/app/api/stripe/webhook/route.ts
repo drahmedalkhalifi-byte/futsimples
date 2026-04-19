@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   // Initialize lazily so env vars are available at runtime, not build time
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-    apiVersion: "2025-03-31.basil",
+    apiVersion: "2024-06-20",
   });
 
   const { adminDb } = await import("@/lib/firebase-admin");
