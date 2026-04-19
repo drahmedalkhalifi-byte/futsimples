@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { sendEmailVerification } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { Trophy, Mail, Loader2, CheckCircle2, RefreshCw } from "lucide-react";
+import { Trophy, Mail, Loader2, CheckCircle2, RefreshCw, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import Link from "next/link";
 
 export default function VerificarEmailPage() {
   const router = useRouter();
@@ -35,6 +36,15 @@ export default function VerificarEmailPage() {
     } finally {
       setChecking(false);
     }
+  }
+
+  async function handleCancel() {
+    const user = auth.currentUser;
+    if (user) {
+      try { await user.delete(); } catch { /* ignore — user can sign out instead */ }
+    }
+    await auth.signOut();
+    router.replace("/");
   }
 
   async function handleResend() {
@@ -133,6 +143,16 @@ export default function VerificarEmailPage() {
             <p className="text-xs text-muted-foreground">
               Verificando automaticamente a cada 5 segundos...
             </p>
+
+            <div className="border-t border-border/50 pt-4">
+              <button
+                onClick={handleCancel}
+                className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors mx-auto"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Cancelar e voltar para o início
+              </button>
+            </div>
           </CardContent>
         </Card>
       </div>
