@@ -622,10 +622,16 @@ export default function PagamentosPage() {
     try {
       if (payment.status === "pendente") {
         await markAsPaid(payment.id);
-        toast.success(`Pagamento de ${payment.studentName} marcado como pago!`);
+        const valor = payment.amount
+          ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(payment.amount)
+          : null;
+        toast.success(
+          `💰 ${payment.studentName} pagou!${valor ? ` ${valor} no caixa.` : ""}`,
+          { description: "Tá chegando! Continue assim 💪" }
+        );
       } else {
         await markAsPending(payment.id);
-        toast.success("Pagamento revertido para pendente.");
+        toast.info("Pagamento revertido para pendente.");
       }
     } catch {
       toast.error("Erro ao atualizar status.");

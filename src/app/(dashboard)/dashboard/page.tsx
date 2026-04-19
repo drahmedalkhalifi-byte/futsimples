@@ -5,6 +5,14 @@ import { useDashboard } from "@/hooks/use-dashboard";
 import { StudentsChart } from "@/components/dashboard/students-chart";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
 import { OnboardingChecklist } from "@/components/dashboard/onboarding-checklist";
+import { useAuth } from "@/contexts/auth-context";
+
+function getGreeting(name: string | null) {
+  const h = new Date().getHours();
+  const saudacao = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+  const firstName = name?.split(" ")[0] ?? null;
+  return firstName ? `${saudacao}, ${firstName}! 👋` : `${saudacao}! 👋`;
+}
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("pt-BR", {
@@ -59,6 +67,7 @@ export default function DashboardPage() {
     monthlyRevenue,
     loading,
   } = useDashboard();
+  const { user } = useAuth();
 
   if (loading) {
     return (
@@ -73,15 +82,29 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-7">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary shadow-sm shadow-primary/30">
-          <Trophy className="w-5 h-5 text-white" />
+      {/* Header com saudação pessoal */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center justify-center w-10 h-10 rounded-xl bg-primary shadow-sm shadow-primary/30">
+            <Trophy className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">
+              {getGreeting(user?.name ?? null)}
+            </h2>
+            <p className="text-sm text-muted-foreground">Aqui está o resumo da sua escola hoje.</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">Dashboard</h2>
-          <p className="text-sm text-muted-foreground">Visão geral da escola</p>
-        </div>
+        {pendingPayments > 0 && (
+          <div className="flex items-center gap-2 rounded-xl bg-amber-50 border border-amber-200 px-4 py-2.5 text-sm">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+            <span className="text-amber-700 font-medium">
+              {pendingPayments === 1
+                ? "1 pagamento pendente — que tal cobrar agora?"
+                : `${pendingPayments} pagamentos pendentes — que tal cobrar agora?`}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Onboarding checklist — shown to new users until all steps done */}

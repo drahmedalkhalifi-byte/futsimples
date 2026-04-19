@@ -261,14 +261,11 @@ export function AnimatedBackground() {
     resize();
     window.addEventListener("resize", resize);
 
-    // Create 6 balls at different depths and positions
+    // 3 balls only — lighter on mobile 4G
     const balls: Ball[] = [
-      { x: w * 0.12, y: h * 0.18, z: 0.9, r: 88,  vx:  0.18, vy:  0.12, spin: 0,    spinSpeed: 0.008, tiltX: 0.3, tiltY: 0.2 },
-      { x: w * 0.82, y: h * 0.22, z: 0.7, r: 66,  vx: -0.14, vy:  0.16, spin: 1.5,  spinSpeed: 0.012, tiltX: 0.5, tiltY: 0.4 },
-      { x: w * 0.68, y: h * 0.75, z: 0.95,r: 100, vx:  0.10, vy: -0.13, spin: 2.8,  spinSpeed: 0.006, tiltX: 0.1, tiltY: 0.6 },
-      { x: w * 0.22, y: h * 0.72, z: 0.5, r: 50,  vx: -0.18, vy: -0.10, spin: 4.2,  spinSpeed: 0.015, tiltX: 0.8, tiltY: 0.1 },
-      { x: w * 0.50, y: h * 0.10, z: 0.4, r: 42,  vx:  0.08, vy:  0.18, spin: 0.9,  spinSpeed: 0.018, tiltX: 0.6, tiltY: 0.7 },
-      { x: w * 0.90, y: h * 0.60, z: 0.3, r: 34,  vx: -0.12, vy: -0.14, spin: 3.1,  spinSpeed: 0.020, tiltX: 0.2, tiltY: 0.9 },
+      { x: w * 0.10, y: h * 0.18, z: 0.8, r: 72, vx:  0.15, vy:  0.10, spin: 0,   spinSpeed: 0.008, tiltX: 0.3, tiltY: 0.2 },
+      { x: w * 0.85, y: h * 0.20, z: 0.6, r: 56, vx: -0.12, vy:  0.13, spin: 1.5, spinSpeed: 0.011, tiltX: 0.5, tiltY: 0.4 },
+      { x: w * 0.65, y: h * 0.78, z: 0.5, r: 44, vx:  0.09, vy: -0.11, spin: 2.8, spinSpeed: 0.007, tiltX: 0.1, tiltY: 0.6 },
     ];
 
     const draw = () => {
