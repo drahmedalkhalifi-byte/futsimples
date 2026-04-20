@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   Pencil, Trash2, Search, Loader2, Users, MessageCircle,
-  Link2, UserX, UserCheck,
+  Link2, UserX, UserCheck, Copy, Check,
 } from "lucide-react";
 import { formatWhatsAppNumber } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
@@ -123,6 +123,8 @@ export function StudentTable({
   const [reactivating, setReactivating] = useState(false);
 
   const [generatingPortal, setGeneratingPortal] = useState<string | null>(null);
+  const [portalLinkDialog, setPortalLinkDialog] = useState<{ studentName: string; link: string } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
 
   async function handleCopyPortalLink(student: Student) {
     setGeneratingPortal(student.id);
@@ -130,19 +132,40 @@ export function StudentTable({
       let token = student.portalToken;
       if (!token) {
         token = crypto.randomUUID().replace(/-/g, "");
+        // Save to Firestore first
         await updateDoc(doc(db, "students", student.id), {
           portalToken: token,
           updatedAt: serverTimestamp(),
         });
+        // Sync local state (onSnapshot will also update, but this is instant)
         await onUpdate(student.id, { portalToken: token });
       }
       const link = `${window.location.origin}/portal/${token}`;
-      await navigator.clipboard.writeText(link);
-      toast.success("Link do portal copiado! Cole no WhatsApp para o responsável.");
-    } catch {
-      toast.error("Erro ao gerar link do portal.");
+
+      // Try clipboard, fallback to dialog
+      try {
+        await navigator.clipboard.writeText(link);
+        toast.success("Link do portal copiado! Cole no WhatsApp para o responsável.");
+      } catch {
+        // Clipboard blocked (e.g. browser permission) — show dialog with the link
+        setPortalLinkDialog({ studentName: student.name, link });
+        setLinkCopied(false);
+      }
+    } catch (err) {
+      console.error("Erro ao gerar link do portal:", err);
+      toast.error("Erro ao salvar link do portal. Tente novamente.");
     } finally {
       setGeneratingPortal(null);
+    }
+  }
+
+  async function handleCopyFromDialog(link: string) {
+    try {
+      await navigator.clipboard.writeText(link);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2000);
+    } catch {
+      // Ignore — user can manually select and copy
     }
   }
 
@@ -486,6 +509,36 @@ export function StudentTable({
                 : "Excluir permanentemente"
               }
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Portal link fallback dialog */}
+      <Dialog open={!!portalLinkDialog} onOpenChange={(open) => !open && setPortalLinkDialog(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Link do Portal — {portalLinkDialog?.studentName}</DialogTitle>
+            <DialogDescription>
+              Copie o link abaixo e envie pelo WhatsApp para o responsável.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+            <span className="flex-1 text-xs font-mono text-foreground break-all select-all">
+              {portalLinkDialog?.link}
+            </span>
+            <button
+              onClick={() => portalLinkDialog && handleCopyFromDialog(portalLinkDialog.link)}
+              className="shrink-0 inline-flex items-center justify-center rounded-md p-1.5 hover:bg-accent transition-colors"
+              title="Copiar link"
+            >
+              {linkCopied
+                ? <Check className="w-4 h-4 text-emerald-500" />
+                : <Copy className="w-4 h-4 text-muted-foreground" />
+              }
+            </button>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPortalLinkDialog(null)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

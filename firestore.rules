@@ -2,88 +2,81 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper: get the schoolId of the currently authenticated user
-    function mySchoolId() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.schoolId;
-    }
-
     function isAuthed() {
       return request.auth != null;
     }
 
+    function mySchoolId() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.schoolId;
+    }
+
+    function sameSchool(docSchoolId) {
+      return isAuthed() && docSchoolId == mySchoolId();
+    }
+
     // ── Users ────────────────────────────────────────────────────────────────
-    // Each user can only access their own document
     match /users/{userId} {
       allow read, write: if isAuthed() && request.auth.uid == userId;
     }
 
     // ── Schools ──────────────────────────────────────────────────────────────
-    // Read: unauthenticated allowed (portal needs school name)
-    // Write: only the school's own admin
+    // Public read so parent portal can show school name
+    // Write restricted to own school admin
     match /schools/{schoolId} {
       allow read: if true;
-      allow write: if isAuthed() && schoolId == mySchoolId();
+      allow write: if sameSchool(schoolId);
     }
 
     // ── Students ─────────────────────────────────────────────────────────────
-    // Authenticated: only own school
-    // Unauthenticated: read-only (for parent portal — token provides security)
+    // Public read for parent portal (token-gated in app logic)
     match /students/{docId} {
-      allow read: if !isAuthed()                          // portal (public, token-gated in app logic)
-        || (isAuthed() && resource.data.schoolId == mySchoolId());
-      allow create: if isAuthed()
-        && request.resource.data.schoolId == mySchoolId();
-      allow update, delete: if isAuthed()
-        && resource.data.schoolId == mySchoolId();
+      allow read: if true;
+      allow create: if isAuthed() && request.resource.data.schoolId == mySchoolId();
+      allow update: if isAuthed() && resource.data.schoolId == mySchoolId();
+      allow delete: if isAuthed() && resource.data.schoolId == mySchoolId();
     }
 
     // ── Payments ─────────────────────────────────────────────────────────────
-    // Unauthenticated read allowed for parent portal
+    // Public read for parent portal
     match /payments/{docId} {
-      allow read: if !isAuthed()
-        || (isAuthed() && resource.data.schoolId == mySchoolId());
-      allow create: if isAuthed()
-        && request.resource.data.schoolId == mySchoolId();
-      allow update, delete: if isAuthed()
-        && resource.data.schoolId == mySchoolId();
+      allow read: if true;
+      allow create: if isAuthed() && request.resource.data.schoolId == mySchoolId();
+      allow update: if isAuthed() && resource.data.schoolId == mySchoolId();
+      allow delete: if isAuthed() && resource.data.schoolId == mySchoolId();
     }
 
     // ── Attendances ──────────────────────────────────────────────────────────
-    // Unauthenticated read allowed for parent portal
+    // Public read for parent portal
     match /attendances/{docId} {
-      allow read: if !isAuthed()
-        || (isAuthed() && resource.data.schoolId == mySchoolId());
-      allow create: if isAuthed()
-        && request.resource.data.schoolId == mySchoolId();
-      allow update, delete: if isAuthed()
-        && resource.data.schoolId == mySchoolId();
+      allow read: if true;
+      allow create: if isAuthed() && request.resource.data.schoolId == mySchoolId();
+      allow update: if isAuthed() && resource.data.schoolId == mySchoolId();
+      allow delete: if isAuthed() && resource.data.schoolId == mySchoolId();
     }
 
     // ── Schedules ────────────────────────────────────────────────────────────
-    // Unauthenticated read allowed for parent portal
+    // Public read for parent portal
     match /schedules/{docId} {
-      allow read: if !isAuthed()
-        || (isAuthed() && resource.data.schoolId == mySchoolId());
-      allow create: if isAuthed()
-        && request.resource.data.schoolId == mySchoolId();
-      allow update, delete: if isAuthed()
-        && resource.data.schoolId == mySchoolId();
+      allow read: if true;
+      allow create: if isAuthed() && request.resource.data.schoolId == mySchoolId();
+      allow update: if isAuthed() && resource.data.schoolId == mySchoolId();
+      allow delete: if isAuthed() && resource.data.schoolId == mySchoolId();
     }
 
     // ── Expenses ─────────────────────────────────────────────────────────────
     match /expenses/{docId} {
-      allow read, write: if isAuthed()
-        && resource.data.schoolId == mySchoolId();
-      allow create: if isAuthed()
-        && request.resource.data.schoolId == mySchoolId();
+      allow read: if sameSchool(resource.data.schoolId);
+      allow create: if isAuthed() && request.resource.data.schoolId == mySchoolId();
+      allow update: if isAuthed() && resource.data.schoolId == mySchoolId();
+      allow delete: if isAuthed() && resource.data.schoolId == mySchoolId();
     }
 
     // ── Championships ────────────────────────────────────────────────────────
     match /championships/{docId} {
-      allow read, write: if isAuthed()
-        && resource.data.schoolId == mySchoolId();
-      allow create: if isAuthed()
-        && request.resource.data.schoolId == mySchoolId();
+      allow read: if sameSchool(resource.data.schoolId);
+      allow create: if isAuthed() && request.resource.data.schoolId == mySchoolId();
+      allow update: if isAuthed() && resource.data.schoolId == mySchoolId();
+      allow delete: if isAuthed() && resource.data.schoolId == mySchoolId();
     }
   }
 }
