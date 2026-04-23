@@ -15,6 +15,14 @@ export default function VerificarEmailPage() {
   const [resending, setResending] = useState(false);
   const [resent, setResent] = useState(false);
   const [error, setError] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+
+  // Capture email on mount (auth.currentUser may not be available after a page reload)
+  useEffect(() => {
+    const user = auth.currentUser;
+    if (user) setUserEmail(user.email ?? "");
+    else router.replace("/login");
+  }, [router]);
 
   async function handleCheck() {
     const user = auth.currentUser;
@@ -39,11 +47,14 @@ export default function VerificarEmailPage() {
   }
 
   async function handleCancel() {
+    // Attempt to delete the unverified auth account (cleans up orphaned users).
+    // This requires a recent sign-in; if it fails we silently skip it.
+    // Regardless of delete outcome, we always sign out and go home.
     const user = auth.currentUser;
     if (user) {
-      try { await user.delete(); } catch { /* ignore — user can sign out instead */ }
+      try { await user.delete(); } catch { /* session may be too old for re-auth — that's okay */ }
     }
-    await auth.signOut();
+    try { await auth.signOut(); } catch { /* ignore */ }
     router.replace("/");
   }
 
@@ -97,7 +108,9 @@ export default function VerificarEmailPage() {
             <div>
               <h2 className="text-base font-semibold text-foreground">Confirme seu e-mail</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Enviamos um link de ativação para o seu e-mail. Clique no link e depois volte aqui.
+                Enviamos um link de ativação para{" "}
+                {userEmail ? <strong>{userEmail}</strong> : "o seu e-mail"}.{" "}
+                Clique no link e depois volte aqui.
               </p>
             </div>
 

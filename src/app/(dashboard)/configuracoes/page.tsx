@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { Settings, UserPlus, Loader2, Trash2, AlertCircle, CheckCircle2, Users, QrCode, CreditCard, ExternalLink, Clock } from "lucide-react";
-import { createUserWithEmailAndPassword, getAuth } from "firebase/auth";
+import { createUserWithEmailAndPassword, getAuth, sendEmailVerification } from "firebase/auth";
 import { initializeApp, deleteApp } from "firebase/app";
 import { doc, setDoc, serverTimestamp, collection, query, where, onSnapshot, deleteDoc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -144,22 +144,50 @@ export default function ConfiguracoesPage() {
 
     try {
       const cred = await createUserWithEmailAndPassword(secondaryAuth, email.trim(), password);
+
+      // Write Firestore user doc
       await setDoc(doc(db, "users", cred.user.uid), {
         schoolId,
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         name: name.trim(),
         role: "coach",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+
+      // Send email verification so professor can access the system
+      try { await sendEmailVerification(cred.user); } catch { /* non-critical */ }
+
       setInviteDone(true);
-      toast.success(`${name.trim()} adicionado com sucesso!`);
+      toast.success(`${name.trim()} adicionado! Email de verificação enviado.`);
     } catch (err: unknown) {
       const code = err && typeof err === "object" && "code" in err ? String((err as { code: string }).code) : "";
+
       if (code === "auth/email-already-in-use") {
-        setInviteError("Este email já está em uso.");
+        // Auth account exists but Firestore doc may be missing — try to re-link
+        setSaving(true);
+        try {
+          const res = await fetch("/api/team/relink", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email.trim(), name: name.trim(), requestingUid: user?.id }),
+          });
+          const body = await res.json().catch(() => ({})) as { error?: string };
+          if (res.status === 409) {
+            setInviteError("Este email já pertence a outra escola.");
+          } else if (!res.ok) {
+            setInviteError(body.error ?? "Não foi possível reativar o professor. Tente novamente.");
+          } else {
+            setInviteDone(true);
+            toast.success(`Acesso de ${name.trim()} restaurado com sucesso!`);
+          }
+        } catch {
+          setInviteError("Erro de conexão. Tente novamente.");
+        }
       } else if (code === "auth/invalid-email") {
         setInviteError("Email inválido.");
+      } else if (code === "auth/weak-password") {
+        setInviteError("A senha deve ter pelo menos 6 caracteres.");
       } else {
         setInviteError("Erro ao adicionar professor. Tente novamente.");
       }
@@ -171,14 +199,25 @@ export default function ConfiguracoesPage() {
   }
 
   async function handleDelete() {
-    if (!deleteTarget) return;
+    if (!deleteTarget || !user) return;
     setDeleting(true);
     try {
-      await deleteDoc(doc(db, "users", deleteTarget.id));
+      // Use server-side API so both Firestore doc AND Firebase Auth account are deleted.
+      // This prevents deleted professors from still having valid login credentials.
+      const res = await fetch("/api/team/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetUid: deleteTarget.id, requestingUid: user.id }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as { error?: string }).error ?? "Erro desconhecido");
+      }
       toast.success(`${deleteTarget.name} removido da escola.`);
       setDeleteTarget(null);
-    } catch {
-      toast.error("Erro ao remover professor.");
+    } catch (err) {
+      console.error("handleDelete:", err);
+      toast.error("Erro ao remover professor. Tente novamente.");
     } finally {
       setDeleting(false);
     }

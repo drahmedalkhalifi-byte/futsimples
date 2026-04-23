@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { collection, query, where, getDocs, getDoc, doc, Timestamp } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { Timestamp } from "firebase/firestore";
 import {
   Trophy, CheckCircle2, Clock, CreditCard,
   CalendarCheck, Loader2, AlertCircle, HeartPulse,
@@ -48,62 +47,12 @@ export default function PortalPage() {
   useEffect(() => {
     async function load() {
       try {
-        // Find student by portalToken
-        const studentsQ = query(collection(db, "students"), where("portalToken", "==", token));
-        const studentsSnap = await getDocs(studentsQ);
-        if (studentsSnap.empty) { setNotFound(true); setLoading(false); return; }
-
-        const studentDoc = studentsSnap.docs[0];
-        const student = { id: studentDoc.id, ...studentDoc.data() } as Student;
-        const schoolId = student.schoolId;
-
-        // Load school name — direct doc read, no auth required
-        let schoolName = "Escolinha";
-        try {
-          const schoolDoc = await getDoc(doc(db, "schools", schoolId));
-          if (schoolDoc.exists()) schoolName = schoolDoc.data().name ?? schoolName;
-        } catch { /* non-critical — fallback name used */ }
-
-        // Load payments, attendances, schedules — gracefully handle permission errors
-        let payments: Payment[] = [];
-        let attendances: Attendance[] = [];
-        let upcomingSchedules: Schedule[] = [];
-
-        try {
-          const paymentsSnap = await getDocs(query(collection(db, "payments"), where("studentId", "==", student.id)));
-          payments = paymentsSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Payment));
-        } catch (e) { console.warn("Portal: erro ao carregar pagamentos", e); }
-
-        try {
-          const threeMonthsAgo = new Date();
-          threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-          const attSnap = await getDocs(query(
-            collection(db, "attendances"),
-            where("schoolId", "==", schoolId),
-            where("category", "==", student.category),
-          ));
-          attendances = attSnap.docs
-            .map((d) => ({ id: d.id, ...d.data() } as Attendance))
-            .filter((a) => { const d = toDate(a.date); return d && d >= threeMonthsAgo; });
-        } catch (e) { console.warn("Portal: erro ao carregar presenças", e); }
-
-        try {
-          const now2 = new Date();
-          const schedulesSnap = await getDocs(query(
-            collection(db, "schedules"),
-            where("schoolId", "==", schoolId),
-            where("category", "==", student.category),
-          ));
-          upcomingSchedules = schedulesSnap.docs
-            .map(d => ({ id: d.id, ...d.data() } as Schedule))
-            .filter(s => { const d = toDate(s.date); return d && d >= now2; })
-            .sort((a, b) => (toDate(a.date)?.getTime() ?? 0) - (toDate(b.date)?.getTime() ?? 0))
-            .slice(0, 4);
-        } catch (e) { console.warn("Portal: erro ao carregar agenda", e); }
-
-        setData({ student, schoolName, payments, attendances, upcomingSchedules });
-      } catch (err) {
-        console.error("Portal: erro crítico ao carregar dados", err);
+        const res = await fetch(`/api/portal/${token}`);
+        if (res.status === 404) { setNotFound(true); return; }
+        if (!res.ok) { setNotFound(true); return; }
+        const json = await res.json();
+        setData(json as PortalData);
+      } catch {
         setNotFound(true);
       } finally {
         setLoading(false);
@@ -130,26 +79,23 @@ export default function PortalPage() {
 
   const { student, schoolName, payments, attendances, upcomingSchedules } = data;
 
-  // Current month payments
   const now = new Date();
   const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   const currentMonthPayments = payments.filter((p) => p.month === currentMonth);
   const hasPendingThisMonth = currentMonthPayments.some((p) => p.status === "pendente");
-  const hasPaidThisMonth = currentMonthPayments.some((p) => p.status === "pago");
+  const hasPaidThisMonth    = currentMonthPayments.some((p) => p.status === "pago");
 
-  // Last 3 payments
   const sortedPayments = [...payments].sort((a, b) => {
     const da = toDate(a.dueDate)?.getTime() ?? 0;
     const db2 = toDate(b.dueDate)?.getTime() ?? 0;
     return db2 - da;
   }).slice(0, 5);
 
-  // Attendance this month
   const thisMonthAttendances = attendances.filter((a) => {
     const d = toDate(a.date);
     return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
   });
-  const presentCount = thisMonthAttendances.filter((a) =>
+  const presentCount  = thisMonthAttendances.filter((a) =>
     a.records?.find((r) => r.studentId === student.id)?.present
   ).length;
   const totalTrainings = thisMonthAttendances.length;
@@ -165,7 +111,6 @@ export default function PortalPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
       <header className="border-b border-border/50 bg-card/80 backdrop-blur-sm">
         <div className="max-w-lg mx-auto px-4 h-14 flex items-center gap-3">
           <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-green-600 shadow-md shrink-0">
@@ -228,7 +173,7 @@ export default function PortalPage() {
           </div>
         )}
 
-        {/* Payment status this month */}
+        {/* Payment status */}
         <div className={`rounded-2xl border p-5 ${
           hasPaidThisMonth
             ? "border-emerald-500/30 bg-emerald-500/5"
@@ -245,11 +190,13 @@ export default function PortalPage() {
               }`} />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Mensalidade — {now.toLocaleString("pt-BR", { month: "long", year: "numeric" })}</p>
+              <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">
+                Mensalidade — {now.toLocaleString("pt-BR", { month: "long", year: "numeric" })}
+              </p>
               <p className={`text-base font-bold mt-0.5 ${
                 hasPaidThisMonth ? "text-emerald-400" : hasPendingThisMonth ? "text-amber-400" : "text-muted-foreground"
               }`}>
-                {hasPaidThisMonth ? "Em dia ✓" : hasPendingThisMonth ? "Pendente" : "Não lançado"}
+                {hasPaidThisMonth ? "Em dia" : hasPendingThisMonth ? "Pendente" : "Não lançado"}
               </p>
               {hasPendingThisMonth && currentMonthPayments.filter((p) => p.status === "pendente").map((p) => (
                 <p key={p.id} className="text-xs text-muted-foreground mt-0.5">
@@ -260,7 +207,7 @@ export default function PortalPage() {
           </div>
         </div>
 
-        {/* Attendance this month */}
+        {/* Attendance */}
         <div className="rounded-2xl border border-border/50 bg-card p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -273,14 +220,12 @@ export default function PortalPage() {
             <p className="text-sm text-muted-foreground">Nenhum treino registrado este mês.</p>
           ) : (
             <>
-              {/* Progress bar */}
               <div className="w-full h-2 bg-muted rounded-full overflow-hidden mb-3">
                 <div
                   className="h-full bg-primary rounded-full transition-all"
                   style={{ width: `${totalTrainings > 0 ? (presentCount / totalTrainings) * 100 : 0}%` }}
                 />
               </div>
-              {/* Attendance dots */}
               <div className="flex flex-wrap gap-1.5">
                 {thisMonthAttendances
                   .sort((a, b) => (toDate(a.date)?.getTime() ?? 0) - (toDate(b.date)?.getTime() ?? 0))
@@ -304,7 +249,7 @@ export default function PortalPage() {
           )}
         </div>
 
-        {/* Recent payments */}
+        {/* Payment history */}
         {sortedPayments.length > 0 && (
           <div className="rounded-2xl border border-border/50 bg-card p-5">
             <p className="text-sm font-semibold text-foreground mb-3">Histórico de Pagamentos</p>
@@ -335,7 +280,6 @@ export default function PortalPage() {
           </div>
         )}
 
-        {/* Medical authorization badge */}
         {student.medicalInfo?.parentAuthorization && (
           <div className="flex items-center gap-2 rounded-xl border border-rose-500/20 bg-rose-500/5 px-4 py-3">
             <HeartPulse className="w-4 h-4 text-rose-400 shrink-0" />

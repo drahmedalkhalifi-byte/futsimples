@@ -20,44 +20,48 @@ service cloud.firestore {
     }
 
     // ── Schools ──────────────────────────────────────────────────────────────
-    // Public read so parent portal can show school name
-    // Write restricted to own school admin
+    // Public read so parent portal can show school name.
+    // create: any authenticated user can create a NEW school (needed during
+    //         first-time setup, before the user document exists).
+    // update/delete: only the school's own admin (user doc must already exist).
     match /schools/{schoolId} {
       allow read: if true;
-      allow write: if sameSchool(schoolId);
+      allow create: if isAuthed();
+      allow update, delete: if sameSchool(schoolId);
     }
 
     // ── Students ─────────────────────────────────────────────────────────────
-    // Public read for parent portal (token-gated in app logic)
+    // Portal access is handled server-side via /api/portal/[token] (Firebase Admin).
+    // Client-side reads are restricted to authenticated users of the same school.
     match /students/{docId} {
-      allow read: if true;
+      allow read:   if sameSchool(resource.data.schoolId);
       allow create: if isAuthed() && request.resource.data.schoolId == mySchoolId();
       allow update: if isAuthed() && resource.data.schoolId == mySchoolId();
       allow delete: if isAuthed() && resource.data.schoolId == mySchoolId();
     }
 
     // ── Payments ─────────────────────────────────────────────────────────────
-    // Public read for parent portal
+    // Portal access is handled server-side via /api/portal/[token] (Firebase Admin).
     match /payments/{docId} {
-      allow read: if true;
+      allow read:   if sameSchool(resource.data.schoolId);
       allow create: if isAuthed() && request.resource.data.schoolId == mySchoolId();
       allow update: if isAuthed() && resource.data.schoolId == mySchoolId();
       allow delete: if isAuthed() && resource.data.schoolId == mySchoolId();
     }
 
     // ── Attendances ──────────────────────────────────────────────────────────
-    // Public read for parent portal
+    // Portal access is handled server-side via /api/portal/[token] (Firebase Admin).
     match /attendances/{docId} {
-      allow read: if true;
+      allow read:   if sameSchool(resource.data.schoolId);
       allow create: if isAuthed() && request.resource.data.schoolId == mySchoolId();
       allow update: if isAuthed() && resource.data.schoolId == mySchoolId();
       allow delete: if isAuthed() && resource.data.schoolId == mySchoolId();
     }
 
     // ── Schedules ────────────────────────────────────────────────────────────
-    // Public read for parent portal
+    // Portal access is handled server-side via /api/portal/[token] (Firebase Admin).
     match /schedules/{docId} {
-      allow read: if true;
+      allow read:   if sameSchool(resource.data.schoolId);
       allow create: if isAuthed() && request.resource.data.schoolId == mySchoolId();
       allow update: if isAuthed() && resource.data.schoolId == mySchoolId();
       allow delete: if isAuthed() && resource.data.schoolId == mySchoolId();

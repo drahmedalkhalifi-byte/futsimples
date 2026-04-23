@@ -1,23 +1,39 @@
 /**
  * Email utility using Resend.
  * RESEND_API_KEY must be set in environment variables.
+ *
+ * Anti-spam improvements applied:
+ *  - text/plain fallback included in every send (many filters penalise HTML-only)
+ *  - Reply-To set so replies don't go to a no-reply address
+ *  - List-Unsubscribe header present on all transactional messages
+ *  - Subject lines avoid ALL-CAPS, excessive punctuation and emojis
+ *  - Preheader text prevents "[no preview text]" in inboxes
+ *  - Minimal inline CSS (no pink/purple gradients that trip Barracuda/SpamAssassin)
+ *
+ * NOTE: The most effective deliverability fix is connecting a custom domain
+ * (e.g. futsimples.com.br) in Resend and setting SPF + DKIM + DMARC records.
+ * While EMAIL_FROM is onboarding@resend.dev, some emails will land in spam.
  */
 
 const RESEND_API_URL = "https://api.resend.com/emails";
-const FROM_ADDRESS = process.env.EMAIL_FROM ?? "FutSimples <onboarding@resend.dev>";
+const FROM_ADDRESS   = process.env.EMAIL_FROM        ?? "FutSimples <onboarding@resend.dev>";
+const REPLY_TO       = process.env.EMAIL_REPLY_TO    ?? "suporte@futsimples.com.br";
+const APP_URL        = process.env.NEXT_PUBLIC_APP_URL ?? "https://futsimples.netlify.app";
 
 async function sendEmail({
   to,
   subject,
   html,
+  text,
 }: {
   to: string;
   subject: string;
   html: string;
+  text: string;
 }): Promise<void> {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) {
-    console.warn("[email] RESEND_API_KEY not set — skipping email send.");
+    console.warn("[email] RESEND_API_KEY não configurado — e-mail ignorado.");
     return;
   }
 
@@ -27,14 +43,57 @@ async function sendEmail({
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ from: FROM_ADDRESS, to, subject, html }),
+    body: JSON.stringify({
+      from: FROM_ADDRESS,
+      reply_to: REPLY_TO,
+      to,
+      subject,
+      html,
+      text,
+      headers: {
+        "List-Unsubscribe": `<mailto:${REPLY_TO}?subject=Cancelar%20emails>`,
+      },
+    }),
   });
 
   if (!res.ok) {
     const body = await res.text();
-    console.error("[email] Resend error:", res.status, body);
+    console.error("[email] Erro Resend:", res.status, body);
   }
 }
+
+// ── Shared layout helpers ─────────────────────────────────────────────────────
+
+function emailWrapper(preheader: string, body: string): string {
+  return `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FutSimples</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f4f6f9;font-family:Arial,Helvetica,sans-serif;">
+  <!-- Preheader (hidden preview text) -->
+  <div style="display:none;max-height:0;overflow:hidden;color:#f4f6f9;font-size:1px;">${preheader}&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;</div>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f6f9;">
+    <tr><td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="560" style="max-width:560px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;">
+        ${body}
+        <!-- Footer -->
+        <tr><td style="padding:20px 32px;border-top:1px solid #e5e7eb;text-align:center;">
+          <p style="margin:0;color:#9ca3af;font-size:12px;line-height:1.5;">
+            FutSimples — Sistema de gestão para escolinhas de futebol<br>
+            Para deixar de receber estes emails, responda com "cancelar".
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+}
+
+// ── Welcome email ─────────────────────────────────────────────────────────────
 
 export async function sendWelcomeEmail({
   to,
@@ -45,70 +104,69 @@ export async function sendWelcomeEmail({
   adminName: string;
   schoolName: string;
 }): Promise<void> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://futsimples.netlify.app";
+  const subject = `Bem-vindo ao FutSimples, ${adminName}`;
 
-  await sendEmail({
-    to,
-    subject: `Bem-vindo ao FutSimples, ${adminName}! 🏆`,
-    html: `
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f4f6f9;font-family:Inter,Arial,sans-serif;">
-  <div style="max-width:560px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+  const html = emailWrapper(
+    `Sua escola ${schoolName} está pronta. Veja por onde começar.`,
+    `
     <!-- Header -->
-    <div style="background:linear-gradient(135deg,#10b981,#059669);padding:36px 32px;text-align:center;">
-      <div style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;background:rgba(255,255,255,0.2);border-radius:14px;margin-bottom:16px;">
-        <span style="font-size:28px;">🏆</span>
-      </div>
-      <h1 style="margin:0;color:#fff;font-size:24px;font-weight:800;letter-spacing:-0.5px;">FutSimples</h1>
-      <p style="margin:6px 0 0;color:rgba(255,255,255,0.8);font-size:14px;">Sistema de gestão para escolinhas de futebol</p>
-    </div>
+    <tr><td style="background-color:#10b981;padding:32px;text-align:center;">
+      <p style="margin:0;color:#ffffff;font-size:22px;font-weight:bold;letter-spacing:-0.5px;">FutSimples</p>
+      <p style="margin:6px 0 0;color:rgba(255,255,255,0.85);font-size:14px;">Gestão simplificada para escolinhas</p>
+    </td></tr>
     <!-- Body -->
-    <div style="padding:36px 32px;">
-      <h2 style="margin:0 0 8px;color:#111827;font-size:20px;font-weight:700;">Bem-vindo, ${adminName}! 👋</h2>
-      <p style="margin:0 0 24px;color:#6b7280;font-size:15px;line-height:1.6;">
-        Sua escola <strong style="color:#111827;">${schoolName}</strong> está pronta no FutSimples.<br>
-        Você tem <strong style="color:#10b981;">14 dias grátis</strong> para explorar tudo.
+    <tr><td style="padding:32px;">
+      <h2 style="margin:0 0 8px;color:#111827;font-size:18px;font-weight:bold;">Olá, ${adminName}!</h2>
+      <p style="margin:0 0 20px;color:#4b5563;font-size:15px;line-height:1.6;">
+        A escola <strong>${schoolName}</strong> está configurada no FutSimples.
+        Você tem <strong style="color:#10b981;">7 dias gratuitos</strong> para explorar tudo.
       </p>
       <!-- Steps -->
-      <div style="background:#f9fafb;border-radius:12px;padding:20px;margin-bottom:28px;">
-        <p style="margin:0 0 14px;color:#111827;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Por onde começar:</p>
-        ${[
-          ["📋", "Cadastre seus alunos", "Adicione nome, categoria e responsável"],
-          ["✅", "Marque presença no treino", "Registre a presença dos alunos"],
-          ["💰", "Configure cobranças", "Veja quem está em atraso e dispare cobranças no WhatsApp"],
-          ["📱", "Convide seus professores", "Eles marcam presença direto no sistema"],
-        ].map(([emoji, title, desc]) => `
-        <div style="display:flex;gap:12px;margin-bottom:12px;">
-          <span style="font-size:18px;line-height:1.2;">${emoji}</span>
-          <div>
-            <p style="margin:0;color:#111827;font-size:14px;font-weight:600;">${title}</p>
-            <p style="margin:2px 0 0;color:#9ca3af;font-size:13px;">${desc}</p>
-          </div>
-        </div>`).join("")}
-      </div>
+      <table role="presentation" width="100%" style="background:#f9fafb;border-radius:8px;padding:0;margin-bottom:24px;">
+        <tr><td style="padding:20px;">
+          <p style="margin:0 0 14px;color:#111827;font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;">Por onde começar:</p>
+          <p style="margin:0 0 10px;color:#374151;font-size:14px;"><strong>1. Cadastre seus alunos</strong><br><span style="color:#6b7280;">Nome, categoria e responsável</span></p>
+          <p style="margin:0 0 10px;color:#374151;font-size:14px;"><strong>2. Marque presença no treino</strong><br><span style="color:#6b7280;">Registre a frequência dos alunos</span></p>
+          <p style="margin:0 0 10px;color:#374151;font-size:14px;"><strong>3. Configure cobranças</strong><br><span style="color:#6b7280;">Veja quem está em atraso e dispare cobranças pelo WhatsApp</span></p>
+          <p style="margin:0;color:#374151;font-size:14px;"><strong>4. Convide seus professores</strong><br><span style="color:#6b7280;">Eles marcam presença direto no sistema</span></p>
+        </td></tr>
+      </table>
       <!-- CTA -->
-      <div style="text-align:center;margin-bottom:24px;">
-        <a href="${appUrl}/dashboard" style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:10px;box-shadow:0 4px 14px rgba(16,185,129,0.35);">
-          Acessar minha escola →
-        </a>
-      </div>
+      <table role="presentation" width="100%">
+        <tr><td align="center" style="padding-bottom:20px;">
+          <a href="${APP_URL}/dashboard" style="display:inline-block;background-color:#10b981;color:#ffffff;text-decoration:none;font-size:15px;font-weight:bold;padding:14px 32px;border-radius:8px;">
+            Acessar minha escola
+          </a>
+        </td></tr>
+      </table>
       <p style="margin:0;color:#9ca3af;font-size:13px;text-align:center;line-height:1.6;">
-        Qualquer dúvida, responda este email.<br>Estamos aqui para ajudar.
+        Dúvidas? Responda este email — estamos aqui para ajudar.
       </p>
-    </div>
-    <!-- Footer -->
-    <div style="border-top:1px solid #f3f4f6;padding:20px 32px;text-align:center;">
-      <p style="margin:0;color:#d1d5db;font-size:12px;">
-        © ${new Date().getFullYear()} FutSimples · Sistema de gestão para escolinhas de futebol
-      </p>
-    </div>
-  </div>
-</body>
-</html>`,
-  });
+    </td></tr>
+    `
+  );
+
+  const text = `Olá, ${adminName}!
+
+Sua escola ${schoolName} está configurada no FutSimples.
+Você tem 7 dias gratuitos para explorar tudo.
+
+Por onde começar:
+1. Cadastre seus alunos
+2. Marque presença no treino
+3. Configure cobranças
+4. Convide seus professores
+
+Acesse: ${APP_URL}/dashboard
+
+Dúvidas? Responda este email.
+
+FutSimples — Gestão para escolinhas de futebol`;
+
+  await sendEmail({ to, subject, html, text });
 }
+
+// ── Trial reminder email ──────────────────────────────────────────────────────
 
 export async function sendTrialReminderEmail({
   to,
@@ -121,58 +179,73 @@ export async function sendTrialReminderEmail({
   schoolName: string;
   daysLeft: number;
 }): Promise<void> {
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://futsimples.netlify.app";
-  const urgencyColor = daysLeft <= 1 ? "#ef4444" : daysLeft <= 3 ? "#f59e0b" : "#10b981";
-  const dayLabel = daysLeft === 1 ? "1 dia" : `${daysLeft} dias`;
+  const dayLabel    = daysLeft === 1 ? "1 dia" : `${daysLeft} dias`;
+  const urgencyText = daysLeft <= 1
+    ? "Ultimo dia de teste"
+    : daysLeft <= 3
+    ? `Faltam ${dayLabel} para seu teste encerrar`
+    : `Seu teste encerra em ${dayLabel}`;
 
-  await sendEmail({
-    to,
-    subject: `⏳ Seu teste FutSimples termina em ${dayLabel} — não perca o acesso`,
-    html: `
-<!DOCTYPE html>
-<html lang="pt-BR">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
-<body style="margin:0;padding:0;background:#f4f6f9;font-family:Inter,Arial,sans-serif;">
-  <div style="max-width:560px;margin:40px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,0.08);">
+  const subject = `${urgencyText} — FutSimples`;
+
+  const urgencyColor = daysLeft <= 1 ? "#ef4444" : daysLeft <= 3 ? "#f59e0b" : "#10b981";
+
+  const html = emailWrapper(
+    `Não perca seus dados de alunos, pagamentos e presença — assine para continuar.`,
+    `
     <!-- Header -->
-    <div style="background:linear-gradient(135deg,#111827,#1f2937);padding:36px 32px;text-align:center;">
-      <div style="display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;background:rgba(255,255,255,0.1);border-radius:14px;margin-bottom:16px;">
-        <span style="font-size:28px;">⏳</span>
-      </div>
-      <h1 style="margin:0;color:#fff;font-size:24px;font-weight:800;">Seu teste termina em ${dayLabel}</h1>
-      <p style="margin:8px 0 0;color:rgba(255,255,255,0.6);font-size:14px;">FutSimples — ${schoolName}</p>
-    </div>
+    <tr><td style="background-color:#111827;padding:32px;text-align:center;">
+      <p style="margin:0;color:#ffffff;font-size:22px;font-weight:bold;">FutSimples</p>
+      <p style="margin:8px 0 0;color:rgba(255,255,255,0.7);font-size:14px;">${schoolName}</p>
+    </td></tr>
     <!-- Body -->
-    <div style="padding:36px 32px;">
+    <tr><td style="padding:32px;">
+      <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.7;">
+        Olá, <strong>${adminName}</strong>!
+      </p>
       <p style="margin:0 0 20px;color:#374151;font-size:15px;line-height:1.7;">
-        Olá, <strong>${adminName}</strong>!<br><br>
-        Seu período de teste gratuito da escola <strong>${schoolName}</strong> termina em <strong style="color:${urgencyColor};">${dayLabel}</strong>.<br><br>
-        Para não perder o acesso a todos os seus dados — alunos, pagamentos, presença e histórico — assine o FutSimples agora.
+        Seu período de teste da escola <strong>${schoolName}</strong> termina em
+        <strong style="color:${urgencyColor};">${dayLabel}</strong>.
+      </p>
+      <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.7;">
+        Para não perder o acesso aos seus dados — alunos, pagamentos, presenças e histórico — assine o FutSimples agora.
       </p>
       <!-- Price box -->
-      <div style="background:#f9fafb;border:2px solid #10b98133;border-radius:12px;padding:20px;text-align:center;margin-bottom:28px;">
-        <p style="margin:0 0 4px;color:#6b7280;font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Plano Mensal</p>
-        <p style="margin:0;font-size:32px;font-weight:800;color:#111827;">R$59<span style="font-size:22px;">,90</span><span style="font-size:14px;color:#9ca3af;font-weight:400;">/mês</span></p>
-        <p style="margin:8px 0 0;color:#10b981;font-size:13px;font-weight:600;">✓ Tudo incluído · Cancele quando quiser</p>
-      </div>
+      <table role="presentation" width="100%" style="border:1px solid #e5e7eb;border-radius:8px;margin-bottom:24px;">
+        <tr><td style="padding:20px;text-align:center;">
+          <p style="margin:0 0 4px;color:#6b7280;font-size:12px;font-weight:bold;text-transform:uppercase;letter-spacing:0.5px;">Plano Mensal</p>
+          <p style="margin:0;font-size:28px;font-weight:bold;color:#111827;">R$ 59,90<span style="font-size:14px;color:#9ca3af;font-weight:normal;">/mês</span></p>
+          <p style="margin:8px 0 0;color:#10b981;font-size:13px;">Tudo incluido. Cancele quando quiser.</p>
+        </td></tr>
+      </table>
       <!-- CTA -->
-      <div style="text-align:center;margin-bottom:24px;">
-        <a href="${appUrl}/assinar" style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:#fff;text-decoration:none;font-size:15px;font-weight:700;padding:14px 36px;border-radius:10px;box-shadow:0 4px 14px rgba(16,185,129,0.35);">
-          Assinar agora por R$59,90/mês →
-        </a>
-      </div>
+      <table role="presentation" width="100%">
+        <tr><td align="center" style="padding-bottom:16px;">
+          <a href="${APP_URL}/assinar" style="display:inline-block;background-color:#10b981;color:#ffffff;text-decoration:none;font-size:15px;font-weight:bold;padding:14px 32px;border-radius:8px;">
+            Assinar por R$59,90/mes
+          </a>
+        </td></tr>
+      </table>
       <p style="margin:0;color:#9ca3af;font-size:13px;text-align:center;">
-        Também disponível plano anual por <strong style="color:#10b981;">R$599/ano</strong> (2 meses grátis)
+        Tambem disponivel plano anual por <strong style="color:#10b981;">R$599/ano</strong> (2 meses gratis)
       </p>
-    </div>
-    <!-- Footer -->
-    <div style="border-top:1px solid #f3f4f6;padding:20px 32px;text-align:center;">
-      <p style="margin:0;color:#d1d5db;font-size:12px;">
-        © ${new Date().getFullYear()} FutSimples · Se não quer mais receber estes emails, responda "cancelar".
-      </p>
-    </div>
-  </div>
-</body>
-</html>`,
-  });
+    </td></tr>
+    `
+  );
+
+  const text = `Olá, ${adminName}!
+
+Seu período de teste da escola ${schoolName} encerra em ${dayLabel}.
+
+Para não perder seus dados, assine o FutSimples:
+- Plano mensal: R$59,90/mês
+- Plano anual: R$599/ano (2 meses grátis)
+
+Assinar: ${APP_URL}/assinar
+
+Dúvidas? Responda este email.
+
+FutSimples — Gestão para escolinhas de futebol`;
+
+  await sendEmail({ to, subject, html, text });
 }

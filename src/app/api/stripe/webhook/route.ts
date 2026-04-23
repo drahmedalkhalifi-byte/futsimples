@@ -34,11 +34,22 @@ export async function POST(req: NextRequest) {
         const schoolId = session.client_reference_id;
         if (!schoolId) break;
 
+        // Fetch subscription to get current period end (safety net if webhook is missed)
+        let subscriptionExpiresAt: Date | null = null;
+        const stripeSubscriptionId = session.subscription as string | null;
+        if (stripeSubscriptionId) {
+          try {
+            const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+            subscriptionExpiresAt = new Date(sub.current_period_end * 1000);
+          } catch { /* non-critical */ }
+        }
+
         await adminDb.collection("schools").doc(schoolId).update({
           subscriptionStatus: "active",
           stripeCustomerId: session.customer as string,
-          stripeSubscriptionId: session.subscription as string,
+          stripeSubscriptionId: stripeSubscriptionId ?? FieldValue.delete(),
           subscriptionActivatedAt: FieldValue.serverTimestamp(),
+          ...(subscriptionExpiresAt ? { subscriptionExpiresAt } : {}),
           updatedAt: FieldValue.serverTimestamp(),
         });
 
@@ -71,6 +82,9 @@ export async function POST(req: NextRequest) {
         const invoice = event.data.object as Stripe.Invoice;
         const customerId = invoice.customer as string;
         const subscriptionId = (invoice as { subscription?: string }).subscription;
+        // period_end is a Unix timestamp on the invoice — use it as expiry safety net
+        const periodEnd = (invoice as { period_end?: number }).period_end;
+        const subscriptionExpiresAt = periodEnd ? new Date(periodEnd * 1000) : null;
 
         const snap = await adminDb
           .collection("schools")
@@ -82,6 +96,7 @@ export async function POST(req: NextRequest) {
           await snap.docs[0].ref.update({
             subscriptionStatus: "active",
             stripeSubscriptionId: subscriptionId ?? snap.docs[0].data().stripeSubscriptionId,
+            ...(subscriptionExpiresAt ? { subscriptionExpiresAt } : {}),
             updatedAt: FieldValue.serverTimestamp(),
           });
         }
