@@ -11,6 +11,7 @@ import {
   CalendarCheck,
   CalendarDays,
   FileBarChart,
+  Megaphone,
   Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,6 +23,7 @@ const navItems = [
   { label: "Pagamentos",    href: "/pagamentos",    icon: CreditCard },
   { label: "Despesas",      href: "/gastos",        icon: Receipt },
   { label: "Agenda",        href: "/agenda",        icon: CalendarDays },
+  { label: "Avisos",        href: "/avisos",        icon: Megaphone },
   { label: "Relatório",     href: "/relatorio",     icon: FileBarChart },
   { label: "Configurações", href: "/configuracoes", icon: Settings },
 ];
