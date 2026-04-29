@@ -167,16 +167,16 @@ function whatsappUrl(
     const due = dueDate instanceof Date ? dueDate : (dueDate as { toDate?: () => Date })?.toDate?.() ?? new Date(dueDate as string);
     const adj = calculateAdjustment(amount, due, paymentRules);
     if (adj.type === "discount") {
-      rulesLine = `\n\n💚 *Pague até ${paymentRules.discountDaysBefore} dias antes e ganhe ${paymentRules.discountPercent}% de desconto: ${fmt(adj.finalAmount)}*\n📅 No vencimento: ${fmt(amount)}\n⚠️ Após vencimento: multa de ${paymentRules.finePercent}% + ${paymentRules.fineDailyPercent}% ao dia`;
+      rulesLine = `\n\n*Pague até ${paymentRules.discountDaysBefore} dias antes e ganhe ${paymentRules.discountPercent}% de desconto: ${fmt(adj.finalAmount)}*\nNo vencimento: ${fmt(amount)}\nApos vencimento: multa de ${paymentRules.finePercent}% + ${paymentRules.fineDailyPercent}% ao dia`;
     } else if (adj.type === "fine") {
-      rulesLine = `\n\n⚠️ *Pagamento em atraso — ${adj.days} dia${adj.days !== 1 ? "s" : ""}*\nValor original: ${fmt(amount)}\nMulta: +${fmt(adj.extra)}\n*Total: ${fmt(adj.finalAmount)}*`;
+      rulesLine = `\n\n*Pagamento em atraso — ${adj.days} dia${adj.days !== 1 ? "s" : ""}*\nValor original: ${fmt(amount)}\nMulta: +${fmt(adj.extra)}\n*Total: ${fmt(adj.finalAmount)}*`;
     } else {
-      rulesLine = `\n\n✅ Pagamento no vencimento: ${fmt(amount)}\n💚 Pague antes do dia ${formattedDate} para ganhar ${paymentRules.discountPercent}% de desconto: ${fmt(amount * (1 - paymentRules.discountPercent / 100))}`;
+      rulesLine = `\n\nPagamento no vencimento: ${fmt(amount)}\nPague antes do dia ${formattedDate} para ganhar ${paymentRules.discountPercent}% de desconto: ${fmt(amount * (1 - paymentRules.discountPercent / 100))}`;
     }
   }
 
   const text = encodeURIComponent(
-    `Olá, ${guardian}! A mensalidade de *${studentName}* está *pendente* no valor de *${fmt(amount)}* com vencimento em *${formattedDate}*.${rulesLine}${pixLine}\n\nContamos com você para regularizar! Qualquer dúvida, é só chamar. 😊`
+    `Ola, ${guardian}! A mensalidade de *${studentName}* esta *pendente* no valor de *${fmt(amount)}* com vencimento em *${formattedDate}*.${rulesLine}${pixLine}\n\nContamos com voce para regularizar! Qualquer duvida, e so chamar.`
   );
   return `https://wa.me/${number}?text=${text}`;
 }
@@ -186,7 +186,7 @@ function whatsappReceiptUrl(studentName: string, guardian: string, phone: string
   const formattedAmount = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(amount);
   const month = new Date().toLocaleString("pt-BR", { month: "long", year: "numeric" });
   const text = encodeURIComponent(
-    `Olá, ${guardian}! Confirmamos o recebimento da mensalidade de *${studentName}* no valor de *${formattedAmount}* referente a *${month}*. Obrigado! ✅`
+    `Ola, ${guardian}! Confirmamos o recebimento da mensalidade de *${studentName}* no valor de *${formattedAmount}* referente a *${month}*. Obrigado!`
   );
   return `https://wa.me/${number}?text=${text}`;
 }
