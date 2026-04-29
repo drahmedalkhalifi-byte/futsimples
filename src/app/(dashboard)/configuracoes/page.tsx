@@ -432,7 +432,7 @@ export default function ConfiguracoesPage() {
                         type="number" min="0" max="100" step="0.5"
                         value={discountPercent}
                         onChange={(e) => setDiscountPercent(e.target.value)}
-                        className="pr-6"
+                        className="pr-6 bg-white text-gray-900"
                       />
                       <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
                     </div>
@@ -444,7 +444,7 @@ export default function ConfiguracoesPage() {
                         type="number" min="1" max="30" step="1"
                         value={discountDaysBefore}
                         onChange={(e) => setDiscountDaysBefore(e.target.value)}
-                        className="pr-8"
+                        className="pr-8 bg-white text-gray-900"
                       />
                       <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">dias</span>
                     </div>
@@ -466,7 +466,7 @@ export default function ConfiguracoesPage() {
                         type="number" min="0" max="100" step="0.5"
                         value={finePercent}
                         onChange={(e) => setFinePercent(e.target.value)}
-                        className="pr-6"
+                        className="pr-6 bg-white text-gray-900"
                       />
                       <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
                     </div>
@@ -478,7 +478,7 @@ export default function ConfiguracoesPage() {
                         type="number" min="0" max="10" step="0.01"
                         value={fineDailyPercent}
                         onChange={(e) => setFineDailyPercent(e.target.value)}
-                        className="pr-6"
+                        className="pr-6 bg-white text-gray-900"
                       />
                       <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
                     </div>
