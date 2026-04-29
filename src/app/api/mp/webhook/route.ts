@@ -57,16 +57,18 @@ export async function POST(req: NextRequest) {
 
     const paymentId = String(body.data.id);
 
-    // ── Token verification (URL query param) ─────────────────────────────────
+    // ── Token verification (URL query param) — OBRIGATÓRIO ───────────────────
     const expectedToken = process.env.MP_WEBHOOK_TOKEN;
-    if (expectedToken) {
-      const urlToken = req.nextUrl.searchParams.get("token");
-      if (!urlToken || urlToken !== expectedToken) {
-        console.error("MP webhook: token inválido — possível requisição falsificada");
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-    } else {
-      console.warn("MP webhook: MP_WEBHOOK_TOKEN não configurado — verificação ignorada");
+    if (!expectedToken) {
+      // Fail closed: if the secret is not configured, reject all requests.
+      // Set MP_WEBHOOK_TOKEN in Netlify and register it in the MP dashboard webhook URL.
+      console.error("MP webhook: MP_WEBHOOK_TOKEN não configurado — rejeitando requisição");
+      return NextResponse.json({ error: "Endpoint not available" }, { status: 503 });
+    }
+    const urlToken = req.nextUrl.searchParams.get("token");
+    if (!urlToken || urlToken !== expectedToken) {
+      console.error("MP webhook: token inválido — possível requisição falsificada");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // ── HMAC signature verification (if secret available) ───────────────────

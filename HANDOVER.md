@@ -1,259 +1,340 @@
-# FutSimples — Handover Completo
+# FutSimples — Complete Handover for Claude Code
 
-**Data:** Abril 2026  
-**Produto:** FutSimples — SaaS de gestão de escolas de futebol  
-**URL produção:** https://futsimples.netlify.app  
-**Repositório:** https://github.com/drahmedalkhalifi-byte/futsimples  
+> Last updated: April 2026  
+> This document is the source of truth for any Claude Code session working on this project.
 
 ---
 
-## Stack Técnica
+## 1. What Is FutSimples
 
-| Camada | Tecnologia |
+A SaaS web app for Brazilian football school (escolinha) owners.  
+Owners manage students, charge monthly fees via PIX/WhatsApp, track attendance,  
+manage expenses, and view financial reports. Parents get a read-only portal.
+
+**Live URL:** https://futsimples.netlify.app  
+**Hosting:** Netlify (auto-deploys from GitHub `main` branch)  
+**Stack:** Next.js 16.2.3 · React 19 · TypeScript · Tailwind CSS v4 · Firebase · Stripe
+
+---
+
+## 2. Tech Stack
+
+| Layer | Technology |
 |---|---|
-| Framework | Next.js 16.2.3 (App Router, Turbopack) |
-| Banco de dados | Firebase Firestore |
-| Autenticação | Firebase Auth |
-| Pagamentos | Stripe Checkout + Webhooks + Customer Portal |
-| E-mails | Resend API (via fetch nativo) |
-| Deploy | Netlify (CI/CD via GitHub) |
-| Cron job | Netlify Scheduled Functions |
+| Framework | Next.js 16.2.3 (App Router) — read `/node_modules/next/dist/docs/` before writing Next.js code |
+| Auth | Firebase Auth (email/password) |
+| Database | Firestore (multi-tenant by `schoolId`) |
+| File Storage | Firebase Storage |
+| Payments (cards) | Stripe (webhooks at `/api/stripe/webhook`) |
+| Payments (PIX Brazil) | Mercado Pago (webhooks at `/api/mp/webhook`) |
+| Email | Resend (via `src/lib/email.ts`) |
+| UI Components | shadcn/ui + Base UI + Lucide React icons |
+| Charts | Recharts |
+| Hosting | Netlify |
 
 ---
 
-## Funcionalidades Construídas
-
-### 1. Autenticação e Contas
-- Cadastro de escola com Firebase Auth
-- Roles: `admin` e `coach` (professor)
-- Convite de professores por e-mail com link de acesso
-- Página de setup (`/setup`) cria escola + usuário admin no Firestore
-
-### 2. Alunos
-- Cadastro completo (nome, turma, responsável, telefone, endereço)
-- Ficha médica (alergias, plano de saúde, contato de emergência)
-- Portal do responsável (acesso via link, sem login)
-- Desativar aluno (ex-aluno) com histórico preservado
-- Paginação na listagem
-
-### 3. Presença
-- Registro por turma e data
-- Histórico com filtros de mês e categoria
-- Visualização de frequência por aluno
-
-### 4. Pagamentos
-- Registro manual de mensalidades
-- Status: pendente / pago / atrasado
-- Cobrança em lote via WhatsApp com link PIX
-- Sistema de prioridade visual (urgente, atrasado, em dia)
-- Paginação na listagem
-- Exportação de relatório em PDF
-
-### 5. Agenda
-- Eventos por turma
-- Aba de Campeonatos
-
-### 6. Gastos
-- Registro de despesas da escola
-- Categorias personalizáveis
-
-### 7. Relatório
-- Visão geral financeira
-- Gráfico de receita
-- Exportação PDF
-
-### 8. Onboarding Checklist
-- Aparece no dashboard para novos usuários
-- 5 passos: criar conta ✅, cadastrar aluno, marcar presença, registrar pagamento, convidar professor
-- Progresso em círculo SVG, colapsável, dispensável
-- Some automaticamente quando tudo está completo
-
-### 9. Configurações
-- Dados da escola
-- Gestão de professores
-- **Aba de Assinatura**: mostra status (trial/ativo/expirado), botão para o Stripe Portal
-
----
-
-## Sistema de Trial e Assinatura
-
-### Trial
-- 14 dias gratuitos, sem cartão
-- Contado a partir de `trialStartedAt` no Firestore (campo da escola)
-- Lógica em `src/contexts/auth-context.tsx`
-- Exibe banner com dias restantes no dashboard
-
-### Planos
-| Plano | Valor | Stripe interval |
-|---|---|---|
-| Mensal | R$ 59,90/mês | `month` |
-| Anual | R$ 599,00/ano | `year` |
-
-### Fluxo de Pagamento
-1. Usuário clica em "Assinar" → vai para `/assinar`
-2. Escolhe mensal ou anual
-3. POST para `/api/stripe/checkout` → redireciona para Stripe Checkout
-4. Stripe processa e chama webhook `/api/stripe/webhook`
-5. Webhook atualiza Firestore: `subscriptionStatus: "active"`, salva `stripeCustomerId` e `stripeSubscriptionId`
-6. Webhook também envia e-mail de boas-vindas via Resend
-
-### Métodos de Pagamento aceitos
-- Cartão de crédito/débito
-- Boleto bancário (vence em 3 dias)
-
-### Gerenciar Assinatura
-- Botão "Gerenciar assinatura no Stripe" em `/configuracoes`
-- Chama `/api/stripe/portal` → abre Stripe Customer Portal
-- Usuário pode cancelar, trocar plano, atualizar cartão
-
----
-
-## APIs (Route Handlers)
-
-| Rota | Método | Função |
-|---|---|---|
-| `/api/stripe/checkout` | POST | Cria sessão de checkout Stripe |
-| `/api/stripe/webhook` | POST | Recebe eventos do Stripe |
-| `/api/stripe/portal` | POST | Abre Customer Portal do Stripe |
-| `/api/email/welcome` | POST | Envia e-mail de boas-vindas |
-| `/api/email/trial-reminder` | POST | Envia lembrete de trial (protegido por cron secret) |
-
----
-
-## Webhooks Stripe Configurados
-
-| Evento | Ação |
-|---|---|
-| `checkout.session.completed` | Ativa assinatura + envia e-mail de boas-vindas |
-| `invoice.payment_succeeded` | Renova status `active` |
-| `invoice.payment_failed` | Marca status `expired` |
-| `customer.subscription.deleted` | Marca status `expired` |
-
----
-
-## E-mails Automáticos (Resend)
-
-- **Boas-vindas**: enviado quando assinatura é confirmada pelo webhook
-- **Lembrete D-3**: enviado 3 dias antes do trial acabar
-- **Lembrete D-1**: enviado 1 dia antes do trial acabar
-- Campo `lastReminderDaysLeft` no Firestore evita duplicatas
-- Cron job diário em `netlify/functions/trial-reminder-cron.mts` (roda às 9h)
-
-> **Nota:** Resend está configurado mas e-mails só chegam para o domínio verificado. Enquanto não tiver domínio próprio, usar `onboarding@resend.dev` como remetente (funciona mas cai em spam).
-
----
-
-## Variáveis de Ambiente (Netlify)
-
-Todas configuradas em Netlify → Site → Environment variables:
+## 3. Project Structure
 
 ```
+escola-futebol/
+├── src/
+│   ├── app/
+│   │   ├── page.tsx                        ← Landing page (public)
+│   │   ├── layout.tsx                      ← Root layout + SEO metadata
+│   │   ├── sitemap.ts                      ← Auto-generated sitemap.xml
+│   │   ├── robots.ts                       ← Auto-generated robots.txt
+│   │   │
+│   │   ├── login/page.tsx                  ← Login page
+│   │   ├── setup/page.tsx                  ← Registration (admin first-time setup)
+│   │   ├── verificar-email/page.tsx        ← Email verification gate
+│   │   ├── assinar/page.tsx                ← Subscription/payment page
+│   │   │
+│   │   ├── portal/[token]/page.tsx         ← Parent portal (public, token-gated)
+│   │   ├── privacidade/page.tsx            ← Privacy policy
+│   │   ├── termos/page.tsx                 ← Terms of use
+│   │   │
+│   │   ├── (dashboard)/                    ← Protected dashboard (requires auth + schoolId)
+│   │   │   ├── layout.tsx                  ← Dashboard shell (sidebar + topbar)
+│   │   │   ├── dashboard/page.tsx          ← Home: stats, charts, alerts
+│   │   │   ├── alunos/page.tsx             ← Student management
+│   │   │   ├── pagamentos/page.tsx         ← Payments + bulk WhatsApp charging
+│   │   │   ├── presenca/page.tsx           ← Attendance tracking
+│   │   │   ├── agenda/page.tsx             ← Training/game schedule
+│   │   │   ├── gastos/page.tsx             ← Expenses management
+│   │   │   ├── relatorio/page.tsx          ← Monthly financial report + PDF export
+│   │   │   └── configuracoes/page.tsx      ← School settings + team management
+│   │   │
+│   │   └── api/
+│   │       ├── portal/[token]/route.ts     ← Server-side portal data (bypasses Firestore rules)
+│   │       ├── stripe/
+│   │       │   ├── checkout/route.ts       ← Create Stripe checkout session
+│   │       │   ├── portal/route.ts         ← Stripe customer portal link
+│   │       │   └── webhook/route.ts        ← Handle Stripe events (subscription lifecycle)
+│   │       ├── mp/
+│   │       │   ├── checkout/route.ts       ← Create Mercado Pago PIX payment
+│   │       │   ├── status/route.ts         ← Check MP payment status
+│   │       │   └── webhook/route.ts        ← Handle MP payment events
+│   │       ├── email/
+│   │       │   ├── welcome/route.ts        ← Send welcome email on signup
+│   │       │   └── trial-reminder/route.ts ← Trial expiry reminder email
+│   │       └── team/
+│   │           ├── delete/route.ts         ← Delete professor (Firestore + Firebase Auth)
+│   │           └── relink/route.ts         ← Re-link professor with existing Auth account
+│   │
+│   ├── components/
+│   │   ├── ui/                             ← shadcn/ui base components
+│   │   ├── dashboard/                      ← Dashboard widgets (charts, stat cards, alerts)
+│   │   ├── students/                       ← Student form, table, medical form, documents
+│   │   ├── expenses/                       ← Expense form and table
+│   │   ├── relatorio/                      ← Monthly report component
+│   │   ├── layout/                         ← Sidebar, topbar, mobile nav
+│   │   └── landing/                        ← AnimatedBackground (not used in current landing)
+│   │
+│   ├── contexts/
+│   │   └── auth-context.tsx                ← Global auth state (see Section 5)
+│   │
+│   ├── hooks/
+│   │   ├── use-students.ts                 ← Firestore students CRUD
+│   │   ├── use-payments.ts                 ← Firestore payments CRUD
+│   │   ├── use-attendance.ts               ← Firestore attendance CRUD
+│   │   ├── use-schedule.ts                 ← Firestore schedule CRUD
+│   │   ├── use-expenses.ts                 ← Firestore expenses CRUD
+│   │   ├── use-dashboard.ts                ← Aggregated dashboard stats
+│   │   ├── use-championships.ts            ← Championships CRUD
+│   │   └── use-firestore.ts                ← Generic Firestore helpers
+│   │
+│   ├── lib/
+│   │   ├── firebase.ts                     ← Client-side Firebase (auth, db, storage)
+│   │   ├── firebase-admin.ts               ← Server-side Firebase Admin (API routes only)
+│   │   ├── email.ts                        ← Resend email sender (HTML + plain text)
+│   │   └── utils.ts                        ← cn() helper + misc utilities
+│   │
+│   └── types/index.ts                      ← All TypeScript interfaces
+│
+├── firestore.rules                         ← Firestore security rules
+├── firebase.json                           ← Firebase project config
+├── CLAUDE.md → AGENTS.md                   ← AI instructions
+└── HANDOVER.md                             ← This file
+```
+
+---
+
+## 4. Firestore Data Model
+
+All collections are **multi-tenant** — every document has a `schoolId` field.  
+Rules use `sameSchool(resource.data.schoolId)` to enforce isolation.
+
+```
+/users/{uid}
+  schoolId, email, name, role ("admin"|"coach"), createdAt, updatedAt
+
+/schools/{schoolId}
+  name, logo?, pixKey?, subscriptionStatus, trialStartedAt?,
+  subscriptionExpiresAt?, stripeCustomerId?, stripeSubscriptionId?,
+  mpSubscriptionId?, createdAt, updatedAt
+
+/students/{docId}
+  schoolId, name, birthDate (YYYY-MM-DD), age, category (sub6..sub15),
+  guardian, phone, email, active, photoUrl?, portalToken (UUID),
+  medicalInfo{}, documents[], createdAt, updatedAt
+
+/payments/{docId}
+  schoolId, studentId, studentName, type, amount, status ("pago"|"pendente"),
+  dueDate, paidAt?, month (YYYY-MM), createdAt, updatedAt
+
+/attendances/{docId}
+  schoolId, date, category, coachId, coachName,
+  records[{studentId, studentName, present}], createdAt, updatedAt
+
+/schedules/{docId}
+  schoolId, title, type ("treino"|"jogo"), category, date, time,
+  location, notes?, recurring?, daysOfWeek[]?, createdAt, updatedAt
+
+/expenses/{docId}
+  schoolId, description, amount, type ("one-time"|"recurring"),
+  category ("fixo"|"variavel"|"outros"), date?, dayOfMonth?,
+  createdAt, updatedAt
+
+/championships/{docId}
+  schoolId, name, organizer?, startDate, endDate?, location,
+  categories[], notes?, createdAt, updatedAt
+```
+
+---
+
+## 5. Auth Context — How It Works
+
+`src/contexts/auth-context.tsx` is the single source of truth for auth state.
+
+```
+firebaseUser        = Firebase Auth user object (or null)
+user                = Firestore /users/{uid} document (or null)
+schoolId            = user.schoolId (or null)
+role                = "admin" | "coach" (or null)
+isReady             = !loading && !!firebaseUser && !!schoolId
+subscriptionStatus  = "trial" | "active" | "expired"
+trialDaysLeft       = number of trial days remaining (null if not on trial)
+```
+
+**isReady = true** means the user is fully authenticated AND has a Firestore doc.  
+All dashboard pages redirect to `/login` if `!isReady`.
+
+**Orphaned state** = `firebaseUser` exists but `schoolId` is null (Firestore doc missing).  
+Happens when a professor was deleted with the old delete function that only removed  
+the Firestore doc but left the Firebase Auth account. The login page detects this and  
+redirects to `/setup` where the admin can re-invite them via `/api/team/relink`.
+
+---
+
+## 6. Subscription Flow
+
+```
+Trial:   school.subscriptionStatus = "trial", trialStartedAt = now
+         Expires after 7 days → status becomes "expired"
+
+Stripe:  User clicks "Assinar" → /api/stripe/checkout creates session
+         Webhook: checkout.session.completed → fetches subscription, sets status = "active" + subscriptionExpiresAt
+         Webhook: invoice.payment_succeeded  → renews subscriptionExpiresAt using invoice.period_end
+         Webhook: customer.subscription.deleted → sets status = "expired"
+
+PIX/MP:  User clicks PIX option → /api/mp/checkout creates preference
+         Webhook: payment.approved → sets status = "active" + subscriptionExpiresAt (+365 days)
+```
+
+---
+
+## 7. Parent Portal
+
+Each student has a `portalToken` (UUID generated on creation).  
+URL: `/portal/{token}`
+
+The page fetches `/api/portal/{token}` which uses **Firebase Admin** to bypass  
+Firestore security rules (portal users are unauthenticated).
+
+The API returns: student info, school name, payment history, attendance records,  
+upcoming schedule events.
+
+---
+
+## 8. Team Management (Professors)
+
+Admins can invite professors from **Configuracoes > Equipe**.
+
+**Invite flow:**
+1. `configuracoes/page.tsx` calls `createUserWithEmailAndPassword` with secondary Firebase app
+2. Sends `sendEmailVerification` to new professor
+3. Creates Firestore user doc with `role: "coach"` and same `schoolId`
+4. On `auth/email-already-in-use` calls `/api/team/relink` instead
+
+**Relink flow** (`/api/team/relink`):
+- Finds existing Firebase Auth user by email via `getAdminAuth().getUserByEmail()`
+- Creates/overwrites Firestore doc with correct `schoolId` + `role: "coach"`
+- Blocks if email belongs to a user from a different school (returns 409)
+
+**Delete flow** (`/api/team/delete`):
+- Deletes Firestore user doc
+- Deletes Firebase Auth account via Admin SDK (non-fatal if already gone)
+
+---
+
+## 9. Environment Variables
+
+Set in Netlify dashboard (Site settings > Environment variables):
+
+```bash
+# Firebase Client (public — safe to expose)
 NEXT_PUBLIC_FIREBASE_API_KEY
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
 NEXT_PUBLIC_FIREBASE_PROJECT_ID
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
 NEXT_PUBLIC_FIREBASE_APP_ID
+
+# Firebase Admin (server-side only — never expose to client)
+# Option A — single JSON string:
+FIREBASE_SERVICE_ACCOUNT_JSON={"type":"service_account",...}
+# Option B — individual vars (Netlify style):
 FIREBASE_PROJECT_ID
 FIREBASE_CLIENT_EMAIL
-FIREBASE_PRIVATE_KEY
-STRIPE_SECRET_KEY              ← chave sk_live_... completa
-STRIPE_WEBHOOK_SECRET          ← whsec_... do Stripe Dashboard
+FIREBASE_PRIVATE_KEY    # Netlify stores literal \n — code does .replace(/\\n/g, "\n")
+
+# Stripe
+STRIPE_SECRET_KEY
+STRIPE_WEBHOOK_SECRET
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+
+# Mercado Pago
+MP_ACCESS_TOKEN
+MP_WEBHOOK_SECRET
+
+# Email (Resend)
 RESEND_API_KEY
-EMAIL_FROM                     ← ex: FutSimples <onboarding@resend.dev>
-CRON_SECRET                    ← string aleatória para proteger o cron
-NEXT_PUBLIC_APP_URL            ← https://futsimples.netlify.app
+EMAIL_FROM=noreply@futsimples.com.br
+EMAIL_REPLY_TO=contato@futsimples.com.br
 ```
 
 ---
 
-## Deploy
+## 10. Known Bugs & Technical Debt
 
-- **CI/CD automático**: cada `git push origin main` aciona deploy no Netlify
-- **Deploy manual**: Netlify → Deploys → Trigger deploy → Deploy site
-- **Comando de build**: `npm run build`
-- **Pasta publicada**: `.next`
-- **Plugin**: `@netlify/plugin-nextjs`
+| Issue | File | Status |
+|---|---|---|
+| TypeScript: Stripe API version mismatch `"2024-06-20"` vs `"2025-02-24.acacia"` | `api/stripe/*.ts` | Pre-existing, non-breaking |
+| TypeScript: recharts TooltipProps types | `components/dashboard/*.tsx` | Pre-existing, visual only |
+| TypeScript: relatorio type assertions | `relatorio/page.tsx` | Pre-existing |
+| TypeScript: setup page `asChild` prop on Button | `setup/page.tsx` | Pre-existing |
+| git index.lock cannot be deleted in Cowork sandbox | `.git/` | Commit from local terminal |
 
 ---
 
-## Estrutura de Pastas Principais
+## 11. Deployment
 
+**Auto-deploy:** push to `main` on GitHub -> Netlify builds and deploys (~2-3 min).
+
+**Firestore rules must be deployed separately from your terminal:**
+```bash
+firebase deploy --only firestore:rules
 ```
-src/
-├── app/
-│   ├── (dashboard)/       # Páginas autenticadas
-│   │   ├── dashboard/
-│   │   ├── alunos/
-│   │   ├── presenca/
-│   │   ├── pagamentos/
-│   │   ├── agenda/
-│   │   ├── gastos/
-│   │   ├── relatorio/
-│   │   └── configuracoes/
-│   ├── api/
-│   │   ├── stripe/        # checkout, webhook, portal
-│   │   └── email/         # welcome, trial-reminder
-│   ├── assinar/           # Página de planos/assinatura
-│   ├── setup/             # Criação de conta
-│   └── page.tsx           # Landing page
-├── components/
-│   └── dashboard/
-│       ├── onboarding-checklist.tsx
-│       ├── stat-card.tsx
-│       ├── revenue-chart.tsx
-│       └── alerts-section.tsx
-├── contexts/
-│   └── auth-context.tsx   # Trial logic, subscriptionStatus
-└── lib/
-    ├── firebase.ts
-    ├── firebase-admin.ts
-    └── email.ts            # sendWelcomeEmail, sendTrialReminderEmail
-netlify/
-└── functions/
-    └── trial-reminder-cron.mts
+
+**Pending changes not yet pushed (run from your terminal):**
+```bash
+cd C:\Users\drahm\Desktop\claude\escola-futebol
+git add src/app/page.tsx src/app/sitemap.ts src/app/robots.ts
+git commit -m "redesign: landing page + seo sitemap and robots"
+git push origin main
+firebase deploy --only firestore:rules
 ```
 
 ---
 
-## Firestore — Estrutura de Dados
+## 12. Key Design Decisions
 
-### Coleção `schools`
-```
-{
-  name: string,
-  subscriptionStatus: "trial" | "active" | "expired",
-  trialStartedAt: Timestamp,
-  stripeCustomerId: string,
-  stripeSubscriptionId: string,
-  subscriptionActivatedAt: Timestamp,
-  lastReminderDaysLeft: number,
-  updatedAt: Timestamp
-}
-```
-
-### Coleção `users`
-```
-{
-  name: string,
-  email: string,
-  role: "admin" | "coach",
-  schoolId: string
-}
-```
+- **Multi-tenant by schoolId** — flat collections, every doc filtered by `schoolId`. No sub-collections.
+- **`isReady` flag** — prevents dashboard rendering before auth resolves (no flash of unauthenticated UI).
+- **Server-side portal** — `/api/portal/[token]` uses Firebase Admin so Firestore rules stay locked without breaking parent access.
+- **Secondary Firebase app for professor invite** — prevents admin from being signed out when creating a new user account.
+- **Dual Firebase Admin credential format** — `firebase-admin.ts` supports both `FIREBASE_SERVICE_ACCOUNT_JSON` (JSON string) and individual vars (Netlify style with `\n` fix).
+- **Plain text + HTML emails** — both sent via Resend to avoid spam filters. `List-Unsubscribe` and `Reply-To` headers added.
+- **Landing page** — `page.tsx` uses inline styles (not Tailwind classes) for precise control. No AnimatedBackground. Background is `#050505`.
 
 ---
 
-## Próximos Passos Sugeridos
+## 13. Pages Quick Reference
 
-1. **Domínio próprio** — conectar `futsimples.com.br` no Netlify e Resend para e-mails profissionais
-2. **Boleto com CPF** — Stripe exige CPF do cliente para boleto em produção; coletar na tela de checkout
-3. **Dashboard de métricas** — gráfico de MRR, churn, novos cadastros por mês
-4. **App mobile** — PWA ou React Native para professores registrarem presença no celular
-5. **Notificações WhatsApp automáticas** — integrar Twilio ou Z-API para cobranças automáticas
-6. **Multi-escola** — um admin gerenciar várias unidades
-
----
-
-*Documento gerado em abril de 2026. Projeto em produção em https://futsimples.netlify.app*
+| URL | File | Who Can Access |
+|---|---|---|
+| `/` | `app/page.tsx` | Public |
+| `/login` | `app/login/page.tsx` | Public |
+| `/setup` | `app/setup/page.tsx` | Public (first-time registration) |
+| `/verificar-email` | `app/verificar-email/page.tsx` | Unverified Firebase Auth user |
+| `/assinar` | `app/assinar/page.tsx` | Authenticated, expired subscription |
+| `/portal/[token]` | `app/portal/[token]/page.tsx` | Public (token-gated) |
+| `/dashboard` | `app/(dashboard)/dashboard/page.tsx` | isReady + active/trial |
+| `/alunos` | `app/(dashboard)/alunos/page.tsx` | isReady |
+| `/pagamentos` | `app/(dashboard)/pagamentos/page.tsx` | isReady |
+| `/presenca` | `app/(dashboard)/presenca/page.tsx` | isReady |
+| `/agenda` | `app/(dashboard)/agenda/page.tsx` | isReady |
+| `/gastos` | `app/(dashboard)/gastos/page.tsx` | isReady |
+| `/relatorio` | `app/(dashboard)/relatorio/page.tsx` | isReady |
+| `/configuracoes` | `app/(dashboard)/configuracoes/page.tsx` | isReady + role: admin |

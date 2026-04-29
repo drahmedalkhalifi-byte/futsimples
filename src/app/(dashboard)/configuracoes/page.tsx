@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import { Settings, UserPlus, Loader2, Trash2, AlertCircle, CheckCircle2, Users, QrCode, CreditCard, ExternalLink, Clock } from "lucide-react";
-import { createUserWithEmailAndPassword, getAuth, sendEmailVerification } from "firebase/auth";
+import { Settings, UserPlus, Loader2, Trash2, AlertCircle, CheckCircle2, Users, QrCode, CreditCard, ExternalLink, Clock, ToggleLeft, ToggleRight, Percent } from "lucide-react";
+import { createUserWithEmailAndPassword, getAuth, getIdToken, sendEmailVerification } from "firebase/auth";
 import { initializeApp, deleteApp } from "firebase/app";
 import { doc, setDoc, serverTimestamp, collection, query, where, onSnapshot, deleteDoc, getDoc, updateDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
@@ -52,12 +52,13 @@ export default function ConfiguracoesPage() {
   const [portalLoading, setPortalLoading] = useState(false);
 
   async function handleOpenPortal() {
-    if (!schoolId) return;
+    if (!schoolId || !auth.currentUser) return;
     setPortalLoading(true);
     try {
+      const token = await getIdToken(auth.currentUser);
       const res = await fetch("/api/stripe/portal", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ schoolId }),
       });
       const text = await res.text();
@@ -78,7 +79,15 @@ export default function ConfiguracoesPage() {
   const [lastPaymentMethod, setLastPaymentMethod] = useState<string | null>(null);
   const [subscriptionExpiresAt, setSubscriptionExpiresAt] = useState<Date | null>(null);
 
-  // Load school data (for PIX key + payment method)
+  // Payment rules
+  const [rulesEnabled,       setRulesEnabled]       = useState(false);
+  const [discountPercent,    setDiscountPercent]    = useState("5");
+  const [discountDaysBefore, setDiscountDaysBefore] = useState("5");
+  const [finePercent,        setFinePercent]        = useState("2");
+  const [fineDailyPercent,   setFineDailyPercent]   = useState("0.1");
+  const [savingRules,        setSavingRules]        = useState(false);
+
+  // Load school data (for PIX key + payment method + payment rules)
   useEffect(() => {
     if (!schoolId) return;
     getDoc(doc(db, "schools", schoolId)).then((snap) => {
@@ -88,9 +97,39 @@ export default function ConfiguracoesPage() {
         setLastPaymentMethod(data.lastPaymentMethod ?? null);
         const exp = data.subscriptionExpiresAt;
         if (exp?.toDate) setSubscriptionExpiresAt(exp.toDate());
+        // Load payment rules
+        if (data.paymentRules) {
+          setRulesEnabled(data.paymentRules.enabled ?? false);
+          setDiscountPercent(String(data.paymentRules.discountPercent ?? 5));
+          setDiscountDaysBefore(String(data.paymentRules.discountDaysBefore ?? 5));
+          setFinePercent(String(data.paymentRules.finePercent ?? 2));
+          setFineDailyPercent(String(data.paymentRules.fineDailyPercent ?? 0.1));
+        }
       }
     });
   }, [schoolId]);
+
+  async function handleSaveRules() {
+    if (!schoolId) return;
+    setSavingRules(true);
+    try {
+      await updateDoc(doc(db, "schools", schoolId), {
+        paymentRules: {
+          enabled: rulesEnabled,
+          discountPercent:    parseFloat(discountPercent)    || 0,
+          discountDaysBefore: parseInt(discountDaysBefore)   || 0,
+          finePercent:        parseFloat(finePercent)        || 0,
+          fineDailyPercent:   parseFloat(fineDailyPercent)   || 0,
+        },
+        updatedAt: serverTimestamp(),
+      });
+      toast.success("Regras de pagamento salvas!");
+    } catch {
+      toast.error("Erro ao salvar regras de pagamento.");
+    } finally {
+      setSavingRules(false);
+    }
+  }
 
   const isPix = lastPaymentMethod === "pix";
 
@@ -167,10 +206,11 @@ export default function ConfiguracoesPage() {
         // Auth account exists but Firestore doc may be missing — try to re-link
         setSaving(true);
         try {
+          const relinkToken = auth.currentUser ? await getIdToken(auth.currentUser) : "";
           const res = await fetch("/api/team/relink", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email: email.trim(), name: name.trim(), requestingUid: user?.id }),
+            headers: { "Content-Type": "application/json", "Authorization": `Bearer ${relinkToken}` },
+            body: JSON.stringify({ email: email.trim(), name: name.trim() }),
           });
           const body = await res.json().catch(() => ({})) as { error?: string };
           if (res.status === 409) {
@@ -199,15 +239,16 @@ export default function ConfiguracoesPage() {
   }
 
   async function handleDelete() {
-    if (!deleteTarget || !user) return;
+    if (!deleteTarget || !user || !auth.currentUser) return;
     setDeleting(true);
     try {
       // Use server-side API so both Firestore doc AND Firebase Auth account are deleted.
       // This prevents deleted professors from still having valid login credentials.
+      const token = await getIdToken(auth.currentUser);
       const res = await fetch("/api/team/delete", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUid: deleteTarget.id, requestingUid: user.id }),
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ targetUid: deleteTarget.id }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -352,6 +393,107 @@ export default function ConfiguracoesPage() {
               {savingPix ? <Loader2 className="w-4 h-4 animate-spin" /> : "Salvar"}
             </Button>
           </div>
+        </section>
+      )}
+
+      {/* Payment Rules */}
+      {isAdmin && (
+        <section className="rounded-xl border border-border/50 bg-card p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Percent className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold text-foreground">Regras de Pagamento</h3>
+            </div>
+            <button
+              onClick={() => setRulesEnabled(!rulesEnabled)}
+              className="flex items-center gap-2 text-sm font-medium transition-colors"
+            >
+              {rulesEnabled
+                ? <><ToggleRight className="w-6 h-6 text-primary" /><span className="text-primary">Ativado</span></>
+                : <><ToggleLeft className="w-6 h-6 text-muted-foreground" /><span className="text-muted-foreground">Desativado</span></>
+              }
+            </button>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            Aplique desconto para pagamentos antecipados e multa para atrasos. A mensagem do WhatsApp será atualizada automaticamente.
+          </p>
+
+          {rulesEnabled && (
+            <div className="space-y-4 pt-2">
+              {/* Discount */}
+              <div className="rounded-lg bg-emerald-50 border border-emerald-100 p-4 space-y-3">
+                <p className="text-xs font-semibold text-emerald-700 uppercase tracking-wider">Desconto por Antecipação</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Desconto (%)</Label>
+                    <div className="relative">
+                      <Input
+                        type="number" min="0" max="100" step="0.5"
+                        value={discountPercent}
+                        onChange={(e) => setDiscountPercent(e.target.value)}
+                        className="pr-6"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Dias antes do vencimento</Label>
+                    <div className="relative">
+                      <Input
+                        type="number" min="1" max="30" step="1"
+                        value={discountDaysBefore}
+                        onChange={(e) => setDiscountDaysBefore(e.target.value)}
+                        className="pr-8"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">dias</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-emerald-600">
+                  Ex: {discountPercent}% de desconto se pagar até {discountDaysBefore} dias antes do vencimento
+                </p>
+              </div>
+
+              {/* Fine */}
+              <div className="rounded-lg bg-red-50 border border-red-100 p-4 space-y-3">
+                <p className="text-xs font-semibold text-red-700 uppercase tracking-wider">Multa por Atraso</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-xs">Multa fixa (%)</Label>
+                    <div className="relative">
+                      <Input
+                        type="number" min="0" max="100" step="0.5"
+                        value={finePercent}
+                        onChange={(e) => setFinePercent(e.target.value)}
+                        className="pr-6"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Multa por dia (%)</Label>
+                    <div className="relative">
+                      <Input
+                        type="number" min="0" max="10" step="0.01"
+                        value={fineDailyPercent}
+                        onChange={(e) => setFineDailyPercent(e.target.value)}
+                        className="pr-6"
+                      />
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-red-600">
+                  Ex: multa de {finePercent}% + {fineDailyPercent}% por dia de atraso
+                </p>
+              </div>
+            </div>
+          )}
+
+          <Button onClick={handleSaveRules} disabled={savingRules} className="w-full">
+            {savingRules ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : "Salvar Regras"}
+          </Button>
         </section>
       )}
 

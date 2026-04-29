@@ -7,6 +7,7 @@ import {
   DollarSign, ClipboardList, ShieldCheck, ArrowLeft, Star,
   Copy, CheckCircle2, CreditCard, QrCode,
 } from "lucide-react";
+import { getIdToken } from "firebase/auth";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -85,13 +86,14 @@ function AssinarContent() {
 
   // ── Stripe checkout ──
   async function handleStripeCheckout() {
-    if (!schoolId) { setError("Sessão inválida. Faça login novamente."); return; }
+    if (!schoolId || !firebaseUser) { setError("Sessão inválida. Faça login novamente."); return; }
     setLoading(true);
     setError("");
     try {
+      const token = await getIdToken(firebaseUser);
       const res  = await fetch("/api/stripe/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ schoolId, plan }),
       });
       const text = await res.text();
@@ -107,13 +109,14 @@ function AssinarContent() {
 
   // ── Gerar QR Code PIX ──
   async function handleGeneratePix() {
-    if (!schoolId) { setError("Sessão inválida. Faça login novamente."); return; }
+    if (!schoolId || !firebaseUser) { setError("Sessão inválida. Faça login novamente."); return; }
     setPixState("loading");
     setError("");
     try {
+      const token = await getIdToken(firebaseUser);
       const res  = await fetch("/api/mp/checkout", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({
           schoolId,
           plan,

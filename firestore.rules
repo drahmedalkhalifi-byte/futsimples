@@ -20,13 +20,15 @@ service cloud.firestore {
     }
 
     // ── Schools ──────────────────────────────────────────────────────────────
-    // Public read so parent portal can show school name.
+    // Read: only the school's own authenticated users.
+    //   Exception: the portal API uses Firebase Admin (bypasses rules) to fetch
+    //   school name for unauthenticated parent portal users — no public read needed.
     // create: any authenticated user can create a NEW school (needed during
     //         first-time setup, before the user document exists).
-    // update/delete: only the school's own admin (user doc must already exist).
+    // update/delete: only the school's own authenticated users.
     match /schools/{schoolId} {
-      allow read: if true;
-      allow create: if isAuthed();
+      allow read:          if sameSchool(schoolId);
+      allow create:        if isAuthed();
       allow update, delete: if sameSchool(schoolId);
     }
 

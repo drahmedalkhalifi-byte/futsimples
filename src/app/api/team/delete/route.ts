@@ -1,60 +1,61 @@
 import { NextRequest, NextResponse } from "next/server";
+import { verifyAdminUser } from "@/lib/verify-auth";
 
 export const dynamic = "force-dynamic";
 
 /**
- * DELETE /api/team/delete
- * Body: { targetUid: string, requestingUid: string }
+ * POST /api/team/delete
+ * Headers: Authorization: Bearer <firebase_id_token>
+ * Body: { targetUid: string }
  *
  * Deletes a team member completely:
- *  1. Verifies the requesting user is an admin of the same school as the target.
- *  2. Deletes the Firestore user document.
- *  3. Deletes the Firebase Auth account so the credentials can no longer be used.
+ *  1. Verifies caller via Firebase ID Token (not from body).
+ *  2. Checks caller is admin of same school as target.
+ *  3. Deletes the Firestore user document.
+ *  4. Deletes the Firebase Auth account.
  */
 export async function POST(req: NextRequest) {
-  try {
-    const { targetUid, requestingUid } = await req.json() as {
-      targetUid?: string;
-      requestingUid?: string;
-    };
+  // ── Auth: verify caller via JWT, not from request body ────────────────────
+  const caller = await verifyAdminUser(req);
+  if (!caller) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (caller.role !== "admin") {
+    return NextResponse.json({ error: "Forbidden: only admins can remove team members" }, { status: 403 });
+  }
 
-    if (!targetUid || !requestingUid) {
-      return NextResponse.json({ error: "targetUid and requestingUid required" }, { status: 400 });
+  try {
+    const { targetUid } = await req.json() as { targetUid?: string };
+
+    if (!targetUid) {
+      return NextResponse.json({ error: "targetUid required" }, { status: 400 });
+    }
+
+    if (targetUid === caller.uid) {
+      return NextResponse.json({ error: "Cannot remove yourself" }, { status: 400 });
     }
 
     const { adminDb, getAdminAuth } = await import("@/lib/firebase-admin");
 
-    // ── Authorisation: requesting user must be admin of same school ────────
-    const [requestingSnap, targetSnap] = await Promise.all([
-      adminDb.collection("users").doc(requestingUid).get(),
-      adminDb.collection("users").doc(targetUid).get(),
-    ]);
-
-    if (!requestingSnap.exists || !targetSnap.exists) {
+    const targetSnap = await adminDb.collection("users").doc(targetUid).get();
+    if (!targetSnap.exists) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    const requester = requestingSnap.data()!;
-    const target    = targetSnap.data()!;
+    const target = targetSnap.data()!;
 
-    if (requester.role !== "admin") {
-      return NextResponse.json({ error: "Forbidden: only admins can remove team members" }, { status: 403 });
-    }
-    if (requester.schoolId !== target.schoolId) {
+    // ── Enforce same-school isolation ─────────────────────────────────────────
+    if (target.schoolId !== caller.schoolId) {
       return NextResponse.json({ error: "Forbidden: users belong to different schools" }, { status: 403 });
     }
-    if (targetUid === requestingUid) {
-      return NextResponse.json({ error: "Cannot remove yourself" }, { status: 400 });
-    }
 
-    // ── Delete Firestore document ─────────────────────────────────────────
+    // ── Delete Firestore document ─────────────────────────────────────────────
     await adminDb.collection("users").doc(targetUid).delete();
 
-    // ── Delete Firebase Auth account ──────────────────────────────────────
+    // ── Delete Firebase Auth account ──────────────────────────────────────────
     try {
       await getAdminAuth().deleteUser(targetUid);
     } catch (authErr) {
-      // Log but don't fail — Firestore doc is already gone so access is blocked
       console.warn("[team/delete] Could not delete Auth user:", authErr);
     }
 

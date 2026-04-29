@@ -50,7 +50,42 @@ import { useAuth } from "@/contexts/auth-context";
 import { RelatorioPDF } from "@/components/relatorio/relatorio-mensal";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
-import type { Payment, PaymentType, StudentCategory } from "@/types";
+import type { Payment, PaymentType, StudentCategory, PaymentRules } from "@/types";
+
+// ─── Payment rules calculator ─────────────────────────────────────────────────
+
+type PaymentAdjustment =
+  | { type: "discount"; percent: number; finalAmount: number; saving: number }
+  | { type: "fine";     fineFixed: number; fineDaily: number; days: number; finalAmount: number; extra: number }
+  | { type: "normal";   finalAmount: number };
+
+function calculateAdjustment(
+  amount: number,
+  dueDate: Date,
+  rules: PaymentRules
+): PaymentAdjustment {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const due   = new Date(dueDate);
+  due.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((due.getTime() - today.getTime()) / 86_400_000);
+
+  if (diffDays > 0 && diffDays >= rules.discountDaysBefore) {
+    const saving      = parseFloat((amount * rules.discountPercent / 100).toFixed(2));
+    const finalAmount = parseFloat((amount - saving).toFixed(2));
+    return { type: "discount", percent: rules.discountPercent, finalAmount, saving };
+  }
+
+  if (diffDays < 0) {
+    const overdueDays = Math.abs(diffDays);
+    const fineFixed   = parseFloat((amount * rules.finePercent / 100).toFixed(2));
+    const fineDaily   = parseFloat((amount * rules.fineDailyPercent / 100 * overdueDays).toFixed(2));
+    const finalAmount = parseFloat((amount + fineFixed + fineDaily).toFixed(2));
+    return { type: "fine", fineFixed, fineDaily, days: overdueDays, finalAmount, extra: parseFloat((fineFixed + fineDaily).toFixed(2)) };
+  }
+
+  return { type: "normal", finalAmount: amount };
+}
 
 const studentCategories: StudentCategory[] = [
   "babyfoot","sub6","sub7","sub8","sub9","sub10","sub11","sub12","sub13","sub14","sub15",
@@ -119,14 +154,29 @@ function persistCobradoHoje(id: string): void {
 
 function whatsappUrl(
   studentName: string, guardian: string, phone: string,
-  amount: number, dueDate: unknown, pixKey?: string
+  amount: number, dueDate: unknown, pixKey?: string,
+  paymentRules?: PaymentRules
 ): string {
   const number = formatWhatsAppNumber(phone);
-  const formattedAmount = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(amount);
+  const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
   const formattedDate = formatDate(dueDate);
   const pixLine = pixKey ? `\n\nChave PIX: *${pixKey}*` : "";
+
+  let rulesLine = "";
+  if (paymentRules?.enabled && dueDate) {
+    const due = dueDate instanceof Date ? dueDate : (dueDate as { toDate?: () => Date })?.toDate?.() ?? new Date(dueDate as string);
+    const adj = calculateAdjustment(amount, due, paymentRules);
+    if (adj.type === "discount") {
+      rulesLine = `\n\n💚 *Pague até ${paymentRules.discountDaysBefore} dias antes e ganhe ${paymentRules.discountPercent}% de desconto: ${fmt(adj.finalAmount)}*\n📅 No vencimento: ${fmt(amount)}\n⚠️ Após vencimento: multa de ${paymentRules.finePercent}% + ${paymentRules.fineDailyPercent}% ao dia`;
+    } else if (adj.type === "fine") {
+      rulesLine = `\n\n⚠️ *Pagamento em atraso — ${adj.days} dia${adj.days !== 1 ? "s" : ""}*\nValor original: ${fmt(amount)}\nMulta: +${fmt(adj.extra)}\n*Total: ${fmt(adj.finalAmount)}*`;
+    } else {
+      rulesLine = `\n\n✅ Pagamento no vencimento: ${fmt(amount)}\n💚 Pague antes do dia ${formattedDate} para ganhar ${paymentRules.discountPercent}% de desconto: ${fmt(amount * (1 - paymentRules.discountPercent / 100))}`;
+    }
+  }
+
   const text = encodeURIComponent(
-    `Olá, ${guardian}! A mensalidade de *${studentName}* está *pendente* no valor de *${formattedAmount}* com vencimento em *${formattedDate}*.${pixLine}\n\nContamos com você para regularizar! Qualquer dúvida, é só chamar. 😊`
+    `Olá, ${guardian}! A mensalidade de *${studentName}* está *pendente* no valor de *${fmt(amount)}* com vencimento em *${formattedDate}*.${rulesLine}${pixLine}\n\nContamos com você para regularizar! Qualquer dúvida, é só chamar. 😊`
   );
   return `https://wa.me/${number}?text=${text}`;
 }
@@ -456,7 +506,7 @@ function CobrancaEmMassa({ pendingPayments, studentPhoneMap, pixKey, onCobrado, 
     for (let i = 0; i < toSend.length; i++) {
       const p = toSend[i];
       const contact = studentPhoneMap[p.studentId];
-      const url = whatsappUrl(p.studentName, contact.guardian, contact.phone, p.amount, p.dueDate, pixKey);
+      const url = whatsappUrl(p.studentName, contact.guardian, contact.phone, p.amount, p.dueDate, pixKey, paymentRules);
       window.open(url, "_blank");
       onCobrado(p.id);
       if (i < toSend.length - 1) await new Promise((r) => setTimeout(r, 800));
@@ -548,7 +598,7 @@ function CobrancaEmMassa({ pendingPayments, studentPhoneMap, pixKey, onCobrado, 
                       </div>
                     </div>
                     <a
-                      href={whatsappUrl(p.studentName, contact.guardian, contact.phone, p.amount, p.dueDate, pixKey)}
+                      href={whatsappUrl(p.studentName, contact.guardian, contact.phone, p.amount, p.dueDate, pixKey, paymentRules)}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => { e.stopPropagation(); onCobrado(p.id); }}
@@ -599,6 +649,11 @@ export default function PagamentosPage() {
   const PAGE_SIZE = 50;
   const [cobrandoAtrasados, setCobrandoAtrasados] = useState(false);
   const [pixKey, setPixKey] = useState<string>("");
+  const [paymentRules, setPaymentRules] = useState<PaymentRules | undefined>(undefined);
+
+  // Confirmation dialog for marking as paid (when rules are active)
+  const [confirmPayment, setConfirmPayment] = useState<{ payment: Payment; adj: ReturnType<typeof calculateAdjustment> } | null>(null);
+  const [confirming, setConfirming] = useState(false);
 
   // Track which payments were cobrado today (persisted per calendar day)
   const [cobradosHoje, setCobradosHoje] = useState<Set<string>>(() => {
@@ -611,11 +666,15 @@ export default function PagamentosPage() {
     setCobradosHoje((prev) => new Set([...prev, id]));
   }
 
-  // Load PIX key
+  // Load PIX key + payment rules
   useEffect(() => {
     if (!schoolId) return;
     getDoc(doc(db, "schools", schoolId)).then((snap) => {
-      if (snap.exists()) setPixKey(snap.data().pixKey ?? "");
+      if (snap.exists()) {
+        const data = snap.data();
+        setPixKey(data.pixKey ?? "");
+        if (data.paymentRules?.enabled) setPaymentRules(data.paymentRules as PaymentRules);
+      }
     });
   }, [schoolId]);
 
@@ -654,30 +713,47 @@ export default function PagamentosPage() {
   async function handleToggleStatus(payment: Payment) {
     try {
       if (payment.status === "pendente") {
-        await markAsPaid(payment.id);
-        const valor = payment.amount
-          ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(payment.amount)
-          : null;
-        toast.success(
-          `💰 ${payment.studentName} pagou!${valor ? ` ${valor} no caixa.` : ""}`,
-          {
-            description: "Tá chegando! Continue assim 💪",
-            action: (() => {
-              const contact = studentPhoneMap[payment.studentId];
-              if (!contact?.phone) return undefined;
-              return {
-                label: "Enviar recibo WhatsApp",
-                onClick: () => window.open(whatsappReceiptUrl(payment.studentName, contact.guardian, contact.phone, payment.amount), "_blank"),
-              };
-            })(),
-          }
-        );
+        // If rules are active, show confirmation dialog with calculated amount
+        if (paymentRules?.enabled && payment.dueDate) {
+          const due = toDate(payment.dueDate) ?? new Date();
+          const adj = calculateAdjustment(payment.amount, due, paymentRules);
+          setConfirmPayment({ payment, adj });
+          return;
+        }
+        await confirmMarkAsPaid(payment, payment.amount);
       } else {
         await markAsPending(payment.id);
         toast.info("Pagamento revertido para pendente.");
       }
     } catch {
       toast.error("Erro ao atualizar status.");
+    }
+  }
+
+  async function confirmMarkAsPaid(payment: Payment, finalAmount: number) {
+    setConfirming(true);
+    try {
+      await markAsPaid(payment.id, finalAmount !== payment.amount ? finalAmount : undefined);
+      const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
+      toast.success(
+        `💰 ${payment.studentName} pagou! ${fmt(finalAmount)} no caixa.`,
+        {
+          description: "Tá chegando! Continue assim 💪",
+          action: (() => {
+            const contact = studentPhoneMap[payment.studentId];
+            if (!contact?.phone) return undefined;
+            return {
+              label: "Enviar recibo WhatsApp",
+              onClick: () => window.open(whatsappReceiptUrl(payment.studentName, contact.guardian, contact.phone, finalAmount), "_blank"),
+            };
+          })(),
+        }
+      );
+    } catch {
+      toast.error("Erro ao atualizar status.");
+    } finally {
+      setConfirming(false);
+      setConfirmPayment(null);
     }
   }
 
@@ -708,7 +784,7 @@ export default function PagamentosPage() {
     for (let i = 0; i < toSend.length; i++) {
       const p = toSend[i];
       const contact = studentPhoneMap[p.studentId];
-      const url = whatsappUrl(p.studentName, contact.guardian, contact.phone, p.amount, p.dueDate, pixKey);
+      const url = whatsappUrl(p.studentName, contact.guardian, contact.phone, p.amount, p.dueDate, pixKey, paymentRules);
       window.open(url, "_blank");
       markCobrado(p.id);
       if (i < toSend.length - 1) await new Promise((r) => setTimeout(r, 800));
@@ -950,7 +1026,7 @@ export default function PagamentosPage() {
                       <div className="flex items-center justify-end gap-1">
                         {payment.status === "pendente" && studentPhoneMap[payment.studentId]?.phone && (
                           <a
-                            href={whatsappUrl(payment.studentName, studentPhoneMap[payment.studentId].guardian, studentPhoneMap[payment.studentId].phone, payment.amount, payment.dueDate, pixKey)}
+                            href={whatsappUrl(payment.studentName, studentPhoneMap[payment.studentId].guardian, studentPhoneMap[payment.studentId].phone, payment.amount, payment.dueDate, pixKey, paymentRules)}
                             target="_blank"
                             rel="noopener noreferrer"
                             title="Cobrar via WhatsApp"
@@ -1022,6 +1098,82 @@ export default function PagamentosPage() {
           {sortedFiltered.length} de {payments.length} pagamento{payments.length !== 1 ? "s" : ""}
         </p>
       )}
+
+      {/* Payment confirmation with discount/fine */}
+      <Dialog open={!!confirmPayment} onOpenChange={(open) => !open && setConfirmPayment(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Confirmar Pagamento</DialogTitle>
+            <DialogDescription>
+              {confirmPayment?.payment.studentName} — {confirmPayment && new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(confirmPayment.payment.amount)} original
+            </DialogDescription>
+          </DialogHeader>
+
+          {confirmPayment && (
+            <div className="space-y-3 py-2">
+              {confirmPayment.adj.type === "discount" && (
+                <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4 space-y-2">
+                  <p className="text-sm font-semibold text-emerald-700">💚 Desconto por antecipação</p>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Valor original</span>
+                    <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(confirmPayment.payment.amount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-emerald-600">Desconto ({confirmPayment.adj.percent}%)</span>
+                    <span className="text-emerald-600">- {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(confirmPayment.adj.saving)}</span>
+                  </div>
+                  <div className="flex justify-between text-base font-bold border-t border-emerald-200 pt-2">
+                    <span>Total a receber</span>
+                    <span className="text-emerald-700">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(confirmPayment.adj.finalAmount)}</span>
+                  </div>
+                </div>
+              )}
+
+              {confirmPayment.adj.type === "fine" && (
+                <div className="rounded-xl bg-red-50 border border-red-100 p-4 space-y-2">
+                  <p className="text-sm font-semibold text-red-700">⚠️ Multa por atraso ({confirmPayment.adj.days} dia{confirmPayment.adj.days !== 1 ? "s" : ""})</p>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Valor original</span>
+                    <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(confirmPayment.payment.amount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-red-600">Multa fixa</span>
+                    <span className="text-red-600">+ {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(confirmPayment.adj.fineFixed)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-red-600">Multa diária</span>
+                    <span className="text-red-600">+ {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(confirmPayment.adj.fineDaily)}</span>
+                  </div>
+                  <div className="flex justify-between text-base font-bold border-t border-red-200 pt-2">
+                    <span>Total a receber</span>
+                    <span className="text-red-700">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(confirmPayment.adj.finalAmount)}</span>
+                  </div>
+                </div>
+              )}
+
+              {confirmPayment.adj.type === "normal" && (
+                <div className="rounded-xl bg-muted/40 border border-border p-4">
+                  <div className="flex justify-between text-base font-bold">
+                    <span>Total a receber</span>
+                    <span>{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(confirmPayment.adj.finalAmount)}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmPayment(null)} disabled={confirming}>Cancelar</Button>
+            <Button
+              onClick={() => confirmPayment && confirmMarkAsPaid(confirmPayment.payment, confirmPayment.adj.finalAmount)}
+              disabled={confirming}
+              className={confirmPayment?.adj.type === "discount" ? "bg-emerald-600 hover:bg-emerald-700" : confirmPayment?.adj.type === "fine" ? "bg-red-600 hover:bg-red-700" : ""}
+            >
+              {confirming ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Confirmando...</> : "Confirmar Pagamento"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete confirmation */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>

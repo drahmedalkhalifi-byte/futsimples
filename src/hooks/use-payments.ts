@@ -14,8 +14,12 @@ export function usePayments() {
     await add(payment);
   }
 
-  async function markAsPaid(id: string) {
-    return update(id, { status: "pago", paidAt: serverTimestamp() });
+  async function markAsPaid(id: string, finalAmount?: number) {
+    return update(id, {
+      status: "pago",
+      paidAt: serverTimestamp(),
+      ...(finalAmount !== undefined ? { finalAmount } : {}),
+    });
   }
 
   async function markAsPending(id: string) {

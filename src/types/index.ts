@@ -8,11 +8,20 @@ export type PaymentType = "mensalidade" | "matricula" | "arbitragem" | "outros";
 
 export type ScheduleType = "treino" | "jogo";
 
+export interface PaymentRules {
+  enabled: boolean;
+  discountPercent: number;    // % de desconto (ex: 5)
+  discountDaysBefore: number; // quantos dias antes do vencimento (ex: 5)
+  finePercent: number;        // % fixo de multa (ex: 2)
+  fineDailyPercent: number;   // % por dia de atraso (ex: 0.1)
+}
+
 export interface School {
   id: string;
   name: string;
   logo?: string;
   pixKey?: string;
+  paymentRules?: PaymentRules;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -70,6 +79,7 @@ export interface Payment {
   studentName: string;
   type: PaymentType;
   amount: number;
+  finalAmount?: number;  // valor efetivamente pago (com desconto ou multa)
   status: PaymentStatus;
   dueDate: Date;
   paidAt?: Date;

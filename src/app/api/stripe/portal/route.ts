@@ -1,24 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { verifyAdminUser } from "@/lib/verify-auth";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
+  // ── Auth: must be a logged-in admin ──────────────────────────────────────
+  const caller = await verifyAdminUser(req);
+  if (!caller) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const stripeKey = process.env.STRIPE_SECRET_KEY;
     if (!stripeKey) {
       return NextResponse.json({ error: "Stripe não configurado." }, { status: 500 });
     }
 
-    const stripe = new Stripe(stripeKey, {
-      apiVersion: "2024-06-20",
-    });
-
+    const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
     const { adminDb } = await import("@/lib/firebase-admin");
 
     const { schoolId } = await req.json();
     if (!schoolId) {
       return NextResponse.json({ error: "schoolId required" }, { status: 400 });
+    }
+
+    // ── Enforce: caller can only access their own school's portal ────────────
+    if (caller.schoolId !== schoolId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const schoolDoc = await adminDb.collection("schools").doc(schoolId).get();
@@ -42,7 +51,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ url: session.url });
   } catch (err) {
     console.error("Stripe portal error:", err);
-    const message = err instanceof Error ? err.message : "Erro ao abrir portal de assinatura.";
-    return NextResponse.json({ error: message || "Erro interno. Tente novamente." }, { status: 500 });
+    return NextResponse.json({ error: "Erro ao abrir portal de assinatura." }, { status: 500 });
   }
 }

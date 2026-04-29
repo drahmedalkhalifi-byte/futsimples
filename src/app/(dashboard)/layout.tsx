@@ -33,8 +33,13 @@ export default function DashboardLayout({
     }
     if (firebaseUser && !schoolId && !error) {
       router.replace("/setup");
+      return;
     }
-  }, [firebaseUser, loading, error, schoolId, router]);
+    // Move expired redirect into useEffect to avoid calling router during render
+    if (!loading && subscriptionStatus === "expired") {
+      router.replace("/assinar");
+    }
+  }, [firebaseUser, loading, error, schoolId, subscriptionStatus, router]);
 
   if (loading || (firebaseUser && !isReady && !error)) {
     return (
@@ -65,11 +70,8 @@ export default function DashboardLayout({
 
   if (!isReady) return null;
 
-  // Trial expired → redirect to subscription page
-  if (subscriptionStatus === "expired") {
-    router.replace("/assinar");
-    return null;
-  }
+  // Don't render dashboard content while redirecting expired users
+  if (subscriptionStatus === "expired") return null;
 
   return (
     <div className="min-h-screen">
