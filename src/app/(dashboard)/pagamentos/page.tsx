@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
   CreditCard,
@@ -555,9 +555,12 @@ interface CobrancaEmMassaProps {
   onCobrado: (id: string) => void;
   cobradosHoje: Set<string>;
   paymentRules?: PaymentRules;
+  // When true, opens modal immediately in sending mode with only overdue payments
+  externalOpen?: boolean;
+  onExternalClose?: () => void;
 }
 
-function CobrancaEmMassa({ pendingPayments, studentPhoneMap, pixKey, onCobrado, cobradosHoje, paymentRules }: CobrancaEmMassaProps) {
+function CobrancaEmMassa({ pendingPayments, studentPhoneMap, pixKey, onCobrado, cobradosHoje, paymentRules, externalOpen, onExternalClose }: CobrancaEmMassaProps) {
   const [open, setOpen]           = useState(false);
   const [selected, setSelected]   = useState<Set<string>>(new Set());
   const [mode, setMode]           = useState<"select" | "sending" | "done">("select");
@@ -572,8 +575,25 @@ function CobrancaEmMassa({ pendingPayments, studentPhoneMap, pixKey, onCobrado, 
   );
   const overdueWithPhone = sorted.filter((p) => getPaymentPriority(p.dueDate, p.status) === "overdue");
 
+  // Track whether the modal was opened externally (skip the select-mode reset)
+  const externalOpenRef = useRef(false);
+
+  // When parent triggers "cobrar atrasados", open modal directly in sending mode
+  useEffect(() => {
+    if (externalOpen && overdueWithPhone.length > 0) {
+      externalOpenRef.current = true;
+      setQueue(overdueWithPhone);
+      setCurrentIdx(0);
+      setSent(0);
+      setMode("sending");
+      setOpen(true);
+    }
+  }, [externalOpen]); // eslint-disable-line
+
   useEffect(() => {
     if (open) {
+      // If opened externally, don't reset to select mode — the external effect already set sending mode
+      if (externalOpenRef.current) { externalOpenRef.current = false; return; }
       setSelected(new Set(overdueWithPhone.map((p) => p.id)));
       setMode("select");
       setSent(0);
@@ -613,7 +633,7 @@ function CobrancaEmMassa({ pendingPayments, studentPhoneMap, pixKey, onCobrado, 
   const currentPriority = currentPayment ? getPaymentPriority(currentPayment.dueDate, currentPayment.status) : "future";
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setMode("select"); }}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) { setMode("select"); onExternalClose?.(); } }}>
       <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/10 text-primary px-4 py-2 text-sm font-semibold hover:bg-primary/20 transition-colors">
         <Send className="w-4 h-4" />
         Cobrar Inadimplentes ({withPhone.length})
@@ -795,7 +815,7 @@ export default function PagamentosPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [page, setPage] = useState(0);
   const PAGE_SIZE = 50;
-  const [cobrandoAtrasados, setCobrandoAtrasados] = useState(false);
+  const [cobrarAtrasadosOpen, setCobrarAtrasadosOpen] = useState(false);
   const [pixKey, setPixKey] = useState<string>("");
   const [paymentRules, setPaymentRules] = useState<PaymentRules | undefined>(undefined);
 
@@ -925,20 +945,10 @@ export default function PagamentosPage() {
     for (const p of newPayments) await createPayment(p);
   }
 
-  async function handleCobrarAtrasados() {
+  function handleCobrarAtrasados() {
     const toSend = overduePayments.filter((p) => !!studentPhoneMap[p.studentId]?.phone);
     if (toSend.length === 0) { toast.error("Nenhum atrasado com telefone cadastrado."); return; }
-    setCobrandoAtrasados(true);
-    for (let i = 0; i < toSend.length; i++) {
-      const p = toSend[i];
-      const contact = studentPhoneMap[p.studentId];
-      const url = whatsappUrl(p.studentName, contact.guardian, contact.phone, p.amount, p.dueDate, pixKey, paymentRules, p.type);
-      window.open(url, "_blank");
-      markCobrado(p.id);
-      if (i < toSend.length - 1) await new Promise((r) => setTimeout(r, 800));
-    }
-    setCobrandoAtrasados(false);
-    toast.success(`${toSend.length} cobrança${toSend.length !== 1 ? "s" : ""} enviada${toSend.length !== 1 ? "s" : ""}!`);
+    setCobrarAtrasadosOpen(true);
   }
 
   // ── Loading state ──────────────────────────────────────────────────────────
@@ -1032,13 +1042,10 @@ export default function PagamentosPage() {
                 </button>
                 <button
                   onClick={handleCobrarAtrasados}
-                  disabled={cobrandoAtrasados}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 hover:bg-red-600 active:scale-95 px-5 py-2.5 text-sm font-bold text-white transition-all shrink-0 shadow-lg shadow-red-500/25 disabled:opacity-70 disabled:cursor-not-allowed"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 hover:bg-red-600 active:scale-95 px-5 py-2.5 text-sm font-bold text-white transition-all shrink-0 shadow-lg shadow-red-500/25"
                 >
-                  {cobrandoAtrasados
-                    ? <><Loader2 className="w-4 h-4 animate-spin" />Abrindo...</>
-                    : <><AlertTriangle className="w-4 h-4" />Cobrar {overduePayments.length} atrasado{overduePayments.length !== 1 ? "s" : ""}</>
-                  }
+                  <AlertTriangle className="w-4 h-4" />
+                  Cobrar {overduePayments.length} atrasado{overduePayments.length !== 1 ? "s" : ""}
                 </button>
               </div>
             )}
@@ -1067,6 +1074,8 @@ export default function PagamentosPage() {
           onCobrado={markCobrado}
           cobradosHoje={cobradosHoje}
           paymentRules={paymentRules}
+          externalOpen={cobrarAtrasadosOpen}
+          onExternalClose={() => setCobrarAtrasadosOpen(false)}
         />
       )}
 
