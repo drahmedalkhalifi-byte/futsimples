@@ -476,156 +476,221 @@ interface CobrancaEmMassaProps {
 }
 
 function CobrancaEmMassa({ pendingPayments, studentPhoneMap, pixKey, onCobrado, cobradosHoje, paymentRules }: CobrancaEmMassaProps) {
-  const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [sendingAll, setSendingAll] = useState(false);
+  const [open, setOpen]           = useState(false);
+  const [selected, setSelected]   = useState<Set<string>>(new Set());
+  const [mode, setMode]           = useState<"select" | "sending" | "done">("select");
+  const [queue, setQueue]         = useState<Payment[]>([]);
+  const [currentIdx, setCurrentIdx] = useState(0);
+  const [sent, setSent]           = useState(0);
 
   const withPhone = pendingPayments.filter((p) => !!studentPhoneMap[p.studentId]?.phone);
-
-  // Sort: overdue first, then today, then future
   const sorted = [...withPhone].sort((a, b) =>
     PRIORITY_ORDER[getPaymentPriority(a.dueDate, a.status)] -
     PRIORITY_ORDER[getPaymentPriority(b.dueDate, b.status)]
   );
-
   const overdueWithPhone = sorted.filter((p) => getPaymentPriority(p.dueDate, p.status) === "overdue");
 
-  // Default: select only overdue when opened
   useEffect(() => {
     if (open) {
       setSelected(new Set(overdueWithPhone.map((p) => p.id)));
+      setMode("select");
+      setSent(0);
     }
   }, [open]); // eslint-disable-line
 
-  function selectAll() { setSelected(new Set(sorted.map((p) => p.id))); }
-  function selectOverdue() { setSelected(new Set(overdueWithPhone.map((p) => p.id))); }
-  function deselectAll() { setSelected(new Set()); }
+  function selectAll()    { setSelected(new Set(sorted.map((p) => p.id))); }
+  function selectOverdue(){ setSelected(new Set(overdueWithPhone.map((p) => p.id))); }
+  function deselectAll()  { setSelected(new Set()); }
 
-  async function handleSendAll() {
-    setSendingAll(true);
+  function handleStartSending() {
     const toSend = sorted.filter((p) => selected.has(p.id));
-    for (let i = 0; i < toSend.length; i++) {
-      const p = toSend[i];
-      const contact = studentPhoneMap[p.studentId];
-      const url = whatsappUrl(p.studentName, contact.guardian, contact.phone, p.amount, p.dueDate, pixKey, paymentRules);
-      window.open(url, "_blank");
-      onCobrado(p.id);
-      if (i < toSend.length - 1) await new Promise((r) => setTimeout(r, 800));
-    }
-    setSendingAll(false);
-    toast.success(`${toSend.length} cobrança${toSend.length !== 1 ? "s" : ""} enviada${toSend.length !== 1 ? "s" : ""}!`);
+    setQueue(toSend);
+    setCurrentIdx(0);
+    setSent(0);
+    setMode("sending");
   }
 
+  function handleNext(markAsSent: boolean) {
+    const p = queue[currentIdx];
+    if (markAsSent) {
+      onCobrado(p.id);
+      setSent((s) => s + 1);
+    }
+    if (currentIdx + 1 >= queue.length) {
+      setMode("done");
+    } else {
+      setCurrentIdx((i) => i + 1);
+    }
+  }
+
+  const currentPayment = mode === "sending" ? queue[currentIdx] : null;
+  const currentContact = currentPayment ? studentPhoneMap[currentPayment.studentId] : null;
+  const currentUrl     = currentPayment && currentContact
+    ? whatsappUrl(currentPayment.studentName, currentContact.guardian, currentContact.phone, currentPayment.amount, currentPayment.dueDate, pixKey, paymentRules)
+    : "";
+  const currentPriority = currentPayment ? getPaymentPriority(currentPayment.dueDate, currentPayment.status) : "future";
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) setMode("select"); }}>
       <DialogTrigger className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/30 bg-primary/10 text-primary px-4 py-2 text-sm font-semibold hover:bg-primary/20 transition-colors">
         <Send className="w-4 h-4" />
         Cobrar Inadimplentes ({withPhone.length})
       </DialogTrigger>
-      <DialogContent className="sm:max-w-lg max-h-[85vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MessageCircle className="w-5 h-5 text-green-500" />
-            Cobrança em Lote — WhatsApp
-          </DialogTitle>
-          <DialogDescription>
-            Selecione os alunos e dispare as mensagens de uma vez.
-            {pixKey && <span className="block mt-1 text-primary font-medium">PIX: {pixKey}</span>}
-            {!pixKey && <span className="block mt-1 text-amber-500">Configure sua chave PIX em Configurações para incluir nas mensagens.</span>}
-          </DialogDescription>
-        </DialogHeader>
 
-        {sorted.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-8">
-            Nenhum pagamento pendente com telefone cadastrado.
-          </p>
-        ) : (
+      <DialogContent className="sm:max-w-md">
+        {/* ── SELECTION MODE ── */}
+        {mode === "select" && (
           <>
-            {/* Select controls */}
-            <div className="flex items-center justify-between px-1 py-2 border-b border-border/30 flex-wrap gap-2">
-              <div className="flex items-center gap-3">
-                {overdueWithPhone.length > 0 && (
-                  <button onClick={selectOverdue} className="text-xs text-red-400 hover:underline font-medium">
-                    🔴 Só atrasados ({overdueWithPhone.length})
-                  </button>
-                )}
-                <button onClick={selectAll} className="text-xs text-primary hover:underline font-medium">
-                  Selecionar todos
-                </button>
-                {selected.size > 0 && (
-                  <button onClick={deselectAll} className="text-xs text-muted-foreground hover:underline">
-                    Limpar
-                  </button>
-                )}
-              </div>
-              <span className="text-xs text-muted-foreground">{selected.size} de {sorted.length} selecionados</span>
-            </div>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <MessageCircle className="w-5 h-5 text-green-500" />
+                Cobranca em Lote — WhatsApp
+              </DialogTitle>
+              <DialogDescription>
+                Selecione os alunos. As mensagens serao enviadas uma por uma.
+                {!pixKey && <span className="block mt-1 text-amber-500">Configure sua chave PIX em Configuracoes para incluir nas mensagens.</span>}
+              </DialogDescription>
+            </DialogHeader>
 
-            {/* List */}
-            <div className="flex-1 overflow-y-auto space-y-2 py-2 min-h-0">
-              {sorted.map((p) => {
-                const contact = studentPhoneMap[p.studentId];
-                const isSelected = selected.has(p.id);
-                const priority = getPaymentPriority(p.dueDate, p.status);
-                const isCobradoHoje = cobradosHoje.has(p.id);
-                return (
-                  <div
-                    key={p.id}
-                    onClick={() => {
-                      const next = new Set(selected);
-                      if (next.has(p.id)) next.delete(p.id); else next.add(p.id);
-                      setSelected(next);
-                    }}
-                    className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-all ${
-                      isSelected ? "border-primary/40 bg-primary/5" : "border-border/30 bg-muted/20 opacity-50"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className={`w-4 h-4 rounded shrink-0 border-2 flex items-center justify-center transition-colors ${isSelected ? "bg-primary border-primary" : "border-muted-foreground/40"}`}>
-                        {isSelected && <CheckCircle2 className="w-3 h-3 text-primary-foreground" />}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className={`inline-block w-2 h-2 rounded-full shrink-0 ${
-                            priority === "overdue" ? "bg-red-500" :
-                            priority === "today"   ? "bg-amber-400" : "bg-muted-foreground/30"
-                          }`} />
-                          <p className="text-sm font-medium text-foreground truncate">{p.studentName}</p>
-                          {isCobradoHoje && (
-                            <span className="text-[10px] font-medium text-emerald-400/80 bg-emerald-500/10 rounded px-1.5 py-0.5 shrink-0">cobrado ✓</span>
-                          )}
-                        </div>
-                        <p className="text-xs text-muted-foreground">{contact.guardian} · {formatCurrency(p.amount)} · vence {formatDate(p.dueDate)}</p>
-                      </div>
-                    </div>
-                    <a
-                      href={whatsappUrl(p.studentName, contact.guardian, contact.phone, p.amount, p.dueDate, pixKey, paymentRules)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => { e.stopPropagation(); onCobrado(p.id); }}
-                      className="inline-flex shrink-0 items-center gap-1 rounded-md bg-green-500/10 border border-green-500/30 text-green-400 px-2.5 py-1 text-xs font-medium hover:bg-green-500/20 transition-colors"
-                    >
-                      <MessageCircle className="w-3 h-3" />
-                      Enviar
-                    </a>
+            {sorted.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-8">Nenhum pagamento pendente com telefone cadastrado.</p>
+            ) : (
+              <>
+                <div className="flex items-center justify-between px-1 py-2 border-b border-border/30 flex-wrap gap-2">
+                  <div className="flex items-center gap-3">
+                    {overdueWithPhone.length > 0 && (
+                      <button onClick={selectOverdue} className="text-xs text-red-400 hover:underline font-medium">
+                        So atrasados ({overdueWithPhone.length})
+                      </button>
+                    )}
+                    <button onClick={selectAll} className="text-xs text-primary hover:underline font-medium">Todos</button>
+                    {selected.size > 0 && (
+                      <button onClick={deselectAll} className="text-xs text-muted-foreground hover:underline">Limpar</button>
+                    )}
                   </div>
-                );
-              })}
+                  <span className="text-xs text-muted-foreground">{selected.size} de {sorted.length}</span>
+                </div>
+
+                <div className="max-h-64 overflow-y-auto space-y-1.5 py-2">
+                  {sorted.map((p) => {
+                    const contact = studentPhoneMap[p.studentId];
+                    const isSelected = selected.has(p.id);
+                    const priority = getPaymentPriority(p.dueDate, p.status);
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => {
+                          const next = new Set(selected);
+                          if (next.has(p.id)) next.delete(p.id); else next.add(p.id);
+                          setSelected(next);
+                        }}
+                        className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-all ${
+                          isSelected ? "border-primary/40 bg-primary/5" : "border-border/30 bg-muted/20 opacity-50"
+                        }`}
+                      >
+                        <div className={`w-4 h-4 rounded shrink-0 border-2 flex items-center justify-center ${isSelected ? "bg-primary border-primary" : "border-muted-foreground/40"}`}>
+                          {isSelected && <CheckCircle2 className="w-3 h-3 text-primary-foreground" />}
+                        </div>
+                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                          <span className={`w-2 h-2 rounded-full shrink-0 ${priority === "overdue" ? "bg-red-500" : priority === "today" ? "bg-amber-400" : "bg-muted-foreground/30"}`} />
+                          <p className="text-sm font-medium truncate">{p.studentName}</p>
+                          {cobradosHoje.has(p.id) && <span className="text-[10px] text-emerald-400 bg-emerald-500/10 rounded px-1.5 py-0.5 shrink-0">cobrado</span>}
+                        </div>
+                        <span className="text-xs text-muted-foreground shrink-0">{formatCurrency(p.amount)}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <Button className="w-full gap-2" disabled={selected.size === 0} onClick={handleStartSending}>
+                  <Zap className="w-4 h-4" />
+                  Iniciar envio — {selected.size} mensagem{selected.size !== 1 ? "s" : ""}
+                </Button>
+              </>
+            )}
+          </>
+        )}
+
+        {/* ── SENDING MODE ── */}
+        {mode === "sending" && currentPayment && currentContact && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Enviando mensagens</DialogTitle>
+              <DialogDescription>
+                {currentIdx + 1} de {queue.length} — {sent} enviada{sent !== 1 ? "s" : ""}
+              </DialogDescription>
+            </DialogHeader>
+
+            {/* Progress bar */}
+            <div className="w-full bg-muted rounded-full h-2">
+              <div
+                className="bg-primary h-2 rounded-full transition-all"
+                style={{ width: `${((currentIdx) / queue.length) * 100}%` }}
+              />
             </div>
 
-            {/* Footer action */}
-            <div className="pt-3 border-t border-border/30">
-              <Button
-                className="w-full gap-2"
-                disabled={selected.size === 0 || sendingAll}
-                onClick={handleSendAll}
-              >
-                {sendingAll
-                  ? <><Loader2 className="w-4 h-4 animate-spin" />Abrindo WhatsApp...</>
-                  : <><Zap className="w-4 h-4" />Disparar {selected.size} cobrança{selected.size !== 1 ? "s" : ""}</>
-                }
-              </Button>
+            {/* Current contact card */}
+            <div className={`rounded-xl border-2 p-4 space-y-3 ${
+              currentPriority === "overdue" ? "border-red-500/30 bg-red-500/5" :
+              currentPriority === "today"   ? "border-amber-400/30 bg-amber-400/5" :
+                                              "border-primary/20 bg-primary/5"
+            }`}>
+              <div>
+                <p className="text-base font-bold text-foreground">{currentPayment.studentName}</p>
+                <p className="text-sm text-muted-foreground">{currentContact.guardian} · {currentContact.phone}</p>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Valor</span>
+                <span className="font-semibold">{formatCurrency(currentPayment.amount)}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">Vencimento</span>
+                <span className={currentPriority === "overdue" ? "text-red-400 font-medium" : currentPriority === "today" ? "text-amber-400 font-medium" : ""}>
+                  {formatDate(currentPayment.dueDate)}
+                  {currentPriority === "overdue" && " (atrasado)"}
+                  {currentPriority === "today"   && " (hoje)"}
+                </span>
+              </div>
             </div>
+
+            {/* Action buttons */}
+            <div className="space-y-2">
+              <a
+                href={currentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-2 w-full rounded-xl bg-green-600 hover:bg-green-700 text-white py-3 text-sm font-bold transition-colors"
+                onClick={() => onCobrado(currentPayment.id)}
+              >
+                <MessageCircle className="w-4 h-4" />
+                Abrir WhatsApp
+              </a>
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" className="w-full" onClick={() => handleNext(false)}>
+                  Pular
+                </Button>
+                <Button className="w-full" onClick={() => handleNext(true)}>
+                  {currentIdx + 1 < queue.length ? "Proximo" : "Concluir"}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── DONE MODE ── */}
+        {mode === "done" && (
+          <>
+            <DialogHeader>
+              <DialogTitle>Cobrancas concluidas</DialogTitle>
+            </DialogHeader>
+            <div className="flex flex-col items-center gap-3 py-6">
+              <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center">
+                <CheckCircle2 className="w-7 h-7 text-green-600" />
+              </div>
+              <p className="text-base font-bold text-foreground">{sent} de {queue.length} mensagens enviadas</p>
+              <p className="text-sm text-muted-foreground text-center">Os responsaveis foram notificados pelo WhatsApp.</p>
+            </div>
+            <Button className="w-full" onClick={() => setOpen(false)}>Fechar</Button>
           </>
         )}
       </DialogContent>
