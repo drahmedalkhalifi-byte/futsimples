@@ -472,9 +472,10 @@ interface CobrancaEmMassaProps {
   pixKey: string;
   onCobrado: (id: string) => void;
   cobradosHoje: Set<string>;
+  paymentRules?: PaymentRules;
 }
 
-function CobrancaEmMassa({ pendingPayments, studentPhoneMap, pixKey, onCobrado, cobradosHoje }: CobrancaEmMassaProps) {
+function CobrancaEmMassa({ pendingPayments, studentPhoneMap, pixKey, onCobrado, cobradosHoje, paymentRules }: CobrancaEmMassaProps) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [sendingAll, setSendingAll] = useState(false);
@@ -918,6 +919,7 @@ export default function PagamentosPage() {
           pixKey={pixKey}
           onCobrado={markCobrado}
           cobradosHoje={cobradosHoje}
+          paymentRules={paymentRules}
         />
       )}
 
