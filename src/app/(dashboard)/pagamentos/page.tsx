@@ -155,7 +155,8 @@ function persistCobradoHoje(id: string): void {
 function whatsappUrl(
   studentName: string, guardian: string, phone: string,
   amount: number, dueDate: unknown, pixKey?: string,
-  paymentRules?: PaymentRules
+  paymentRules?: PaymentRules,
+  paymentType?: PaymentType
 ): string {
   const number = formatWhatsAppNumber(phone);
   const fmt = (v: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
@@ -163,7 +164,8 @@ function whatsappUrl(
   const pixLine = pixKey ? `\n\nChave PIX: *${pixKey}*` : "";
 
   let rulesLine = "";
-  if (paymentRules?.enabled && dueDate) {
+  // Payment rules (discount/fine) only apply to mensalidade
+  if (paymentRules?.enabled && dueDate && paymentType === "mensalidade") {
     const due = dueDate instanceof Date ? dueDate : (dueDate as { toDate?: () => Date })?.toDate?.() ?? new Date(dueDate as string);
     const adj = calculateAdjustment(amount, due, paymentRules);
     if (adj.type === "discount") {
@@ -175,8 +177,16 @@ function whatsappUrl(
     }
   }
 
+  const typeLabel: Record<string, string> = {
+    mensalidade: "mensalidade",
+    matricula: "matricula",
+    arbitragem: "taxa de arbitragem",
+    outros: "pagamento",
+  };
+  const label = typeLabel[paymentType ?? "mensalidade"] ?? "pagamento";
+
   const text = encodeURIComponent(
-    `Ola, ${guardian}! A mensalidade de *${studentName}* esta *pendente* no valor de *${fmt(amount)}* com vencimento em *${formattedDate}*.${rulesLine}${pixLine}\n\nContamos com voce para regularizar! Qualquer duvida, e so chamar.`
+    `Ola, ${guardian}! A ${label} de *${studentName}* esta *pendente* no valor de *${fmt(amount)}* com vencimento em *${formattedDate}*.${rulesLine}${pixLine}\n\nContamos com voce para regularizar! Qualquer duvida, e so chamar.`
   );
   return `https://wa.me/${number}?text=${text}`;
 }
@@ -598,7 +608,7 @@ function CobrancaEmMassa({ pendingPayments, studentPhoneMap, pixKey, onCobrado, 
   const currentPayment = mode === "sending" ? queue[currentIdx] : null;
   const currentContact = currentPayment ? studentPhoneMap[currentPayment.studentId] : null;
   const currentUrl     = currentPayment && currentContact
-    ? whatsappUrl(currentPayment.studentName, currentContact.guardian, currentContact.phone, currentPayment.amount, currentPayment.dueDate, pixKey, paymentRules)
+    ? whatsappUrl(currentPayment.studentName, currentContact.guardian, currentContact.phone, currentPayment.amount, currentPayment.dueDate, pixKey, paymentRules, currentPayment.type)
     : "";
   const currentPriority = currentPayment ? getPaymentPriority(currentPayment.dueDate, currentPayment.status) : "future";
 
@@ -851,8 +861,8 @@ export default function PagamentosPage() {
   async function handleToggleStatus(payment: Payment) {
     try {
       if (payment.status === "pendente") {
-        // If rules are active, show confirmation dialog with calculated amount
-        if (paymentRules?.enabled && payment.dueDate) {
+        // If rules are active, show confirmation dialog with calculated amount (only for mensalidade)
+        if (paymentRules?.enabled && payment.dueDate && payment.type === "mensalidade") {
           const due = toDate(payment.dueDate) ?? new Date();
           const adj = calculateAdjustment(payment.amount, due, paymentRules);
           setConfirmPayment({ payment, adj });
@@ -922,7 +932,7 @@ export default function PagamentosPage() {
     for (let i = 0; i < toSend.length; i++) {
       const p = toSend[i];
       const contact = studentPhoneMap[p.studentId];
-      const url = whatsappUrl(p.studentName, contact.guardian, contact.phone, p.amount, p.dueDate, pixKey, paymentRules);
+      const url = whatsappUrl(p.studentName, contact.guardian, contact.phone, p.amount, p.dueDate, pixKey, paymentRules, p.type);
       window.open(url, "_blank");
       markCobrado(p.id);
       if (i < toSend.length - 1) await new Promise((r) => setTimeout(r, 800));
@@ -1165,7 +1175,7 @@ export default function PagamentosPage() {
                       <div className="flex items-center justify-end gap-1">
                         {payment.status === "pendente" && studentPhoneMap[payment.studentId]?.phone && (
                           <a
-                            href={whatsappUrl(payment.studentName, studentPhoneMap[payment.studentId].guardian, studentPhoneMap[payment.studentId].phone, payment.amount, payment.dueDate, pixKey, paymentRules)}
+                            href={whatsappUrl(payment.studentName, studentPhoneMap[payment.studentId].guardian, studentPhoneMap[payment.studentId].phone, payment.amount, payment.dueDate, pixKey, paymentRules, payment.type)}
                             target="_blank"
                             rel="noopener noreferrer"
                             title="Cobrar via WhatsApp"
