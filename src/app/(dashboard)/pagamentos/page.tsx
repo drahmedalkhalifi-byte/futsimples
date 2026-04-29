@@ -221,6 +221,7 @@ function PaymentForm({ onSubmit }: PaymentFormProps) {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [type, setType] = useState<PaymentType>("mensalidade");
   const [amount, setAmount] = useState("");
+  const [applyToAll, setApplyToAll] = useState(false);
 
   function defaultDueDate(): string {
     const now = new Date();
@@ -234,6 +235,14 @@ function PaymentForm({ onSubmit }: PaymentFormProps) {
     ? students.filter((s) => s.category === categoryFilter)
     : students;
 
+  // Students that will be billed when applyToAll is active
+  const targetStudents = applyToAll ? filteredStudents : [];
+
+  function handleTypeChange(val: PaymentType) {
+    setType(val);
+    if (val !== "arbitragem") setApplyToAll(false);
+  }
+
   function handleCategoryChange(val: string) {
     setCategoryFilter(val);
     setStudentId(null);
@@ -245,15 +254,44 @@ function PaymentForm({ onSubmit }: PaymentFormProps) {
     setType("mensalidade");
     setAmount("");
     setDueDate(defaultDueDate());
+    setApplyToAll(false);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!studentId) { toast.error("Selecione um aluno."); return; }
     const parsedAmount = parseFloat(amount);
     if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) { toast.error("Informe um valor válido."); return; }
     if (!dueDate) { toast.error("Informe a data de vencimento."); return; }
 
+    // Batch mode: create payment for every student in the selected category
+    if (applyToAll) {
+      if (targetStudents.length === 0) { toast.error("Nenhum aluno encontrado para essa categoria."); return; }
+      setSaving(true);
+      try {
+        for (const student of targetStudents) {
+          await onSubmit({
+            studentId: student.id,
+            studentName: student.name,
+            type,
+            amount: parsedAmount,
+            status: "pendente",
+            dueDate: new Date(dueDate + "T12:00:00"),
+            month: dueDate.slice(0, 7),
+          });
+        }
+        setOpen(false);
+        reset();
+        toast.success(`${targetStudents.length} cobranças cadastradas!`);
+      } catch {
+        toast.error("Erro ao cadastrar cobranças. Tente novamente.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Single student mode
+    if (!studentId) { toast.error("Selecione um aluno."); return; }
     const student = students.find((s) => s.id === studentId);
     setSaving(true);
     try {
@@ -288,38 +326,67 @@ function PaymentForm({ onSubmit }: PaymentFormProps) {
           <DialogDescription>Cadastre um pagamento para um aluno.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Arbitragem: option to apply to all categories */}
+          {type === "arbitragem" && (
+            <div
+              onClick={() => setApplyToAll(!applyToAll)}
+              className={`flex items-center justify-between rounded-xl border-2 px-4 py-3 cursor-pointer transition-all ${
+                applyToAll ? "border-primary bg-primary/5" : "border-border/40 bg-muted/20"
+              }`}
+            >
+              <div>
+                <p className={`text-sm font-semibold ${applyToAll ? "text-primary" : "text-foreground"}`}>
+                  Cobrar todos os alunos
+                </p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {applyToAll
+                    ? `${targetStudents.length} aluno${targetStudents.length !== 1 ? "s" : ""} selecionado${targetStudents.length !== 1 ? "s" : ""}`
+                    : "Aplica para toda uma categoria ou escola"}
+                </p>
+              </div>
+              <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${applyToAll ? "bg-primary border-primary" : "border-muted-foreground/40"}`}>
+                {applyToAll && <CheckCircle2 className="w-3.5 h-3.5 text-primary-foreground" />}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
-            <Label>Categoria</Label>
+            <Label>{applyToAll ? "Categoria (obrigatório)" : "Categoria"}</Label>
             <Select value={categoryFilter} onValueChange={(val) => val !== null && handleCategoryChange(val)}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Todas as categorias" /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder={applyToAll ? "Selecione uma categoria" : "Todas as categorias"} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Todas as categorias</SelectItem>
+                {!applyToAll && <SelectItem value="">Todas as categorias</SelectItem>}
                 {studentCategories.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label>Aluno</Label>
-            <Select value={studentId ?? ""} onValueChange={(val) => setStudentId(val ?? null)}>
-              <SelectTrigger className="w-full">
-                <span className={`flex-1 text-left text-sm truncate ${!studentId ? "text-muted-foreground" : ""}`}>
-                  {studentId
-                    ? (students.find((s) => s.id === studentId)?.name ?? "Selecione um aluno")
-                    : "Selecione um aluno"}
-                </span>
-              </SelectTrigger>
-              <SelectContent>
-                {filteredStudents.length === 0
-                  ? <SelectItem value="_empty" disabled>Nenhum aluno encontrado</SelectItem>
-                  : filteredStudents.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)
-                }
-              </SelectContent>
-            </Select>
-          </div>
+
+          {/* Show student selector only in single mode */}
+          {!applyToAll && (
+            <div className="space-y-2">
+              <Label>Aluno</Label>
+              <Select value={studentId ?? ""} onValueChange={(val) => setStudentId(val ?? null)}>
+                <SelectTrigger className="w-full">
+                  <span className={`flex-1 text-left text-sm truncate ${!studentId ? "text-muted-foreground" : ""}`}>
+                    {studentId
+                      ? (students.find((s) => s.id === studentId)?.name ?? "Selecione um aluno")
+                      : "Selecione um aluno"}
+                  </span>
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredStudents.length === 0
+                    ? <SelectItem value="_empty" disabled>Nenhum aluno encontrado</SelectItem>
+                    : filteredStudents.map((s) => <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>)
+                  }
+                </SelectContent>
+              </Select>
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Tipo</Label>
-              <Select value={type} onValueChange={(val) => { if (val != null) setType(val as PaymentType); }}>
+              <Select value={type} onValueChange={(val) => { if (val != null) handleTypeChange(val as PaymentType); }}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="mensalidade">Mensalidade</SelectItem>
@@ -340,7 +407,12 @@ function PaymentForm({ onSubmit }: PaymentFormProps) {
           </div>
           <DialogFooter>
             <Button type="submit" disabled={saving}>
-              {saving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</> : "Cadastrar"}
+              {saving
+                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Salvando...</>
+                : applyToAll
+                  ? `Cadastrar para ${targetStudents.length} aluno${targetStudents.length !== 1 ? "s" : ""}`
+                  : "Cadastrar"
+              }
             </Button>
           </DialogFooter>
         </form>
