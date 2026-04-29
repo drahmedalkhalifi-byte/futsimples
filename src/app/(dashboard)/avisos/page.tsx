@@ -78,16 +78,6 @@ const TEMPLATES: Template[] = [
   },
 ];
 
-// ─── Variable chips ────────────────────────────────────────────────────────────
-
-const VARIABLES = [
-  { label: "{data}",        hint: "Ex: 30/04/2026" },
-  { label: "{hora}",        hint: "Ex: 15h00" },
-  { label: "{local}",       hint: "Ex: Campo municipal" },
-  { label: "{categoria}",   hint: "Ex: Sub-12" },
-  { label: "{data_proxima}", hint: "Próxima data" },
-];
-
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AvisosPage() {
@@ -98,20 +88,6 @@ export default function AvisosPage() {
   function handleSelectTemplate(t: Template) {
     setSelected(t.id);
     setMessage(t.message);
-  }
-
-  function insertVariable(v: string) {
-    const ta = document.getElementById("aviso-textarea") as HTMLTextAreaElement | null;
-    if (!ta) { setMessage((m) => m + v); return; }
-    const start = ta.selectionStart ?? message.length;
-    const end   = ta.selectionEnd   ?? message.length;
-    const next  = message.slice(0, start) + v + message.slice(end);
-    setMessage(next);
-    // Restore cursor after the inserted variable
-    requestAnimationFrame(() => {
-      ta.focus();
-      ta.setSelectionRange(start + v.length, start + v.length);
-    });
   }
 
   function handleSend() {
@@ -178,20 +154,6 @@ export default function AvisosPage() {
           <span className="text-sm font-semibold">Mensagem</span>
         </div>
 
-        {/* Variable chips */}
-        <div className="px-4 pt-3 pb-2 flex flex-wrap gap-1.5">
-          {VARIABLES.map((v) => (
-            <button
-              key={v.label}
-              onClick={() => insertVariable(v.label)}
-              title={`Inserir: ${v.hint}`}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary/10 border border-primary/20 text-primary text-xs font-mono font-semibold hover:bg-primary/20 transition-colors"
-            >
-              {v.label}
-            </button>
-          ))}
-        </div>
-
         {/* Textarea */}
         <div className="px-4 pb-4">
           <textarea
@@ -202,10 +164,7 @@ export default function AvisosPage() {
             rows={9}
             className="w-full resize-none rounded-xl bg-background border border-border px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
           />
-          <div className="flex items-center justify-between mt-1.5 px-1">
-            <p className="text-xs text-muted-foreground">
-              Clique em uma variável para inserir no cursor
-            </p>
+          <div className="flex items-center justify-end mt-1.5 px-1">
             <span className={`text-xs font-mono ${charCount > 1000 ? "text-amber-400" : "text-muted-foreground"}`}>
               {charCount} caracteres
             </span>
