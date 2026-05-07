@@ -105,7 +105,7 @@ export function FichaMedicaDialog({ student, onSave }: Props) {
             {/* Tipo sanguíneo */}
             <div className="space-y-2">
               <Label>Tipo Sanguíneo</Label>
-              <Select value={bloodType} onValueChange={setBloodType}>
+              <Select value={bloodType} onValueChange={(v) => setBloodType(v ?? "")}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>

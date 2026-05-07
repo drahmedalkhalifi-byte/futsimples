@@ -1,1338 +1,586 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import {
-  Trophy, Users, CreditCard, CalendarCheck, Receipt,
-  CheckCircle2, ArrowRight, Loader2, Star, X,
-  ChevronDown, ChevronUp,
+  Check,
+  X,
+  ArrowRight,
+  Zap,
+  ClipboardCheck,
+  Wallet,
+  ChevronDown,
+  Trophy,
 } from "lucide-react";
 import { useAuth } from "@/contexts/auth-context";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// DATA
-// ─────────────────────────────────────────────────────────────────────────────
-const PAINS = [
-  { label: "Cobrar atrasados um por um no WhatsApp",          cost: "4h/mês" },
-  { label: "Não saber quem está inadimplente agora",          cost: "Dinheiro sumindo" },
-  { label: "Presença no papel ou na memória",                 cost: "Zero histórico" },
-  { label: "Fechar o mês no Excel e os números não batem",    cost: "Decisão no chute" },
-  { label: "Pai pergunta a frequência — você não sabe",       cost: "Credibilidade" },
-];
+const SETUP_URL = "/setup";
+const LOGIN_URL = "/login";
 
-const FEATURES = [
-  {
-    icon: CreditCard,
-    accent: "#10b981",
-    label: "Cobrança em lote",
-    before: "Você manda mensagem no WhatsApp um por um. Todo mês. Do zero.",
-    after:  "Todos os atrasados numa tela. PIX para todos em 2 cliques.",
-  },
-  {
-    icon: Users,
-    accent: "#3b82f6",
-    label: "Gestão de alunos",
-    before: "Alunos no caderno, no celular pessoal e na cabeça.",
-    after:  "Cadastro completo: nome, turma, responsável, ficha médica.",
-  },
-  {
-    icon: CalendarCheck,
-    accent: "#8b5cf6",
-    label: "Presença digital",
-    before: "Papel. Pai liga perguntando se o filho foi ao treino.",
-    after:  "Portal do responsável. Pai acompanha — sem ligar para você.",
-  },
-  {
-    icon: Receipt,
-    accent: "#f43f5e",
-    label: "Financeiro real",
-    before: "Você tenta fechar as contas no fim do mês e os números não batem.",
-    after:  "Receitas e despesas no sistema. PDF em um clique.",
-  },
-];
+// ─── Root ────────────────────────────────────────────────────────────────────
 
-const STEPS = [
-  { n: "01", title: "Cria sua conta", desc: "Email e senha. 2 minutos. Sem cartão." },
-  { n: "02", title: "Cadastra os alunos", desc: "Nome, turma, responsável. No seu ritmo." },
-  { n: "03", title: "Usa na beira do campo", desc: "Presença, cobrança, financeiro. No celular." },
-];
-
-const FOR_YOU = [
-  "Tem escolinha com 10+ alunos",
-  "Cobra mensalidade todo mês",
-  "Quer saber quem está em atraso sem calcular",
-  "Quer parar de usar planilha para tudo",
-  "Quer registrar presença rápido",
-  "Quer relatório real no fim do mês",
-];
-
-const NOT_FOR_YOU = [
-  "Você quer um sistema de ERP empresarial",
-  "Você não cobra mensalidade",
-  "Você prefere planilha e está satisfeito",
-];
-
-const FEATURES_LIST = [
-  "Alunos ilimitados",
-  "Cobrança em lote com PIX",
-  "Portal do responsável",
-  "Presença digital",
-  "Agenda de treinos",
-  "Relatório financeiro PDF",
-  "Convite de professores",
-];
-
-const FAQS = [
-  { q: "Preciso de cartão para testar?",             a: "Não. 7 dias grátis sem nenhum dado de pagamento. Só pede cartão se você decidir continuar." },
-  { q: "Quanto tempo leva para configurar?",         a: "10 minutos. Cria a conta, cadastra os alunos, já começa a usar. Sem treinamento." },
-  { q: "Funciona no celular?",                       a: "Foi feito para isso. Abre no navegador, sem instalar nada. Funciona na beira do campo." },
-  { q: "Quantos alunos posso cadastrar?",            a: "Ilimitados. 15 ou 400 alunos — o preço é o mesmo." },
-  { q: "E se eu não gostar?",                        a: "Cancela nos 7 dias e não paga nada. Sem cobrança, sem multa, sem precisar explicar." },
-  { q: "Qual a diferença entre mensal e anual?",     a: "No anual você paga R$599/ano — R$49,92/mês — e economiza R$119,80." },
-];
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MAIN
-// ─────────────────────────────────────────────────────────────────────────────
-export default function Home() {
+export default function LandingPage() {
   const { firebaseUser, loading } = useAuth();
   const router = useRouter();
-  const [openFaq, setOpenFaq]   = useState<number | null>(null);
-  const [plan, setPlan]         = useState<"monthly" | "annual">("annual");
-  const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    if (loading) return;
-    if (firebaseUser) router.replace("/dashboard");
+    if (!loading && firebaseUser) router.replace("/dashboard");
   }, [firebaseUser, loading, router]);
 
-  useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 12);
-    window.addEventListener("scroll", fn);
-    return () => window.removeEventListener("scroll", fn);
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "#050505" }}>
-        <Loader2 className="w-5 h-5 animate-spin" style={{ color: "rgba(255,255,255,0.15)" }} />
-      </div>
-    );
-  }
-  if (firebaseUser) return null;
+  if (loading) return null;
 
   return (
-    <div className="min-h-screen overflow-x-hidden" style={{ background: "#050505", color: "#fff" }}>
+    <div className="min-h-screen bg-background text-foreground" style={{ backgroundImage: "none" }}>
+      <Header />
+      <Hero />
+      <SocialProofBar />
+      <Pain />
+      <Solution />
+      <HowItWorks />
+      <FitFor />
+      <Pricing />
+      <Faq />
+      <FinalCta />
+      <Footer />
+    </div>
+  );
+}
 
-      {/* ────────────────────────────────────────────────────────────────
-          NAVBAR — Ultra-minimal. 64px. Glassmorphism on scroll.
-          Layout: flex row, logo left · nav right.
-          Components: text logo, ghost link, solid CTA button.
-          Typography: 13px / font-bold.
-      ──────────────────────────────────────────────────────────────── */}
-      <header
-        className="fixed top-0 left-0 right-0 z-50 transition-all duration-500"
-        style={scrolled ? {
-          background: "rgba(5,5,5,0.92)",
-          backdropFilter: "blur(20px)",
-          borderBottom: "1px solid rgba(255,255,255,0.04)",
-        } : undefined}
-      >
-        <div className="max-w-6xl mx-auto px-6 flex items-center justify-between" style={{ height: 64 }}>
-          {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div
-              className="flex items-center justify-center rounded-lg"
-              style={{ width: 28, height: 28, background: "#10b981" }}
-            >
-              <Trophy style={{ width: 14, height: 14, color: "#fff" }} />
-            </div>
-            <span style={{ fontSize: 14, fontWeight: 900, letterSpacing: "-0.02em" }}>FutSimples</span>
-          </div>
+// ─── Header ──────────────────────────────────────────────────────────────────
 
-          {/* Nav */}
-          <div className="flex items-center" style={{ gap: 4 }}>
-            <Link
-              href="/login"
-              className="transition-colors"
-              style={{ padding: "8px 16px", fontSize: 13, fontWeight: 500, color: "rgba(255,255,255,0.35)", borderRadius: 8 }}
-              onMouseEnter={e => (e.currentTarget.style.color = "#fff")}
-              onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
-            >
-              Entrar
-            </Link>
-            <Link
-              href="/setup"
-              className="transition-all"
-              style={{
-                padding: "8px 20px",
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#fff",
-                background: "#10b981",
-                borderRadius: 10,
-                letterSpacing: "-0.01em",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = "#059669")}
-              onMouseLeave={e => (e.currentTarget.style.background = "#10b981")}
-            >
-              Testar grátis
-            </Link>
+function Header() {
+  return (
+    <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-primary">
+            <Trophy className="h-4 w-4 text-primary-foreground" strokeWidth={2.5} />
           </div>
+          <span className="text-lg font-bold tracking-tight">FutSimples</span>
         </div>
-      </header>
-
-      {/* ────────────────────────────────────────────────────────────────
-          HERO — Full viewport height. Center-aligned. Typography-first.
-          Layout: 1 coluna centralizada. Max-width 780px.
-          Components: eyebrow pill, headline H1 gigante, subheadline,
-                      CTA primário, trust signals inline.
-          Typography: h1 = 88px / black / tracking -0.04em / leading 0.92.
-          Cores: bg puro #050505, acento emerald, resto white variants.
-          Spacing: pt-[100px] para navbar + pt-20 extra. Muito ar.
-          Interação: CTA hover → translateY(-2px) + shadow intensifica.
-          Ambient glow: único, central, opacidade 3%.
-      ──────────────────────────────────────────────────────────────── */}
-      <section
-        className="relative flex flex-col items-center justify-center text-center px-6"
-        style={{ minHeight: "100svh", paddingTop: 100, paddingBottom: 120 }}
-      >
-        {/* Ambient glow — single, subtle */}
-        <div
-          className="pointer-events-none absolute"
-          style={{
-            top: "40%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: 700,
-            height: 700,
-            background: "radial-gradient(circle, rgba(16,185,129,0.06) 0%, transparent 70%)",
-            borderRadius: "50%",
-          }}
-        />
-
-        <div className="relative max-w-3xl mx-auto">
-          {/* Eyebrow */}
-          <div
-            className="inline-flex items-center gap-2 mb-10"
-            style={{
-              padding: "6px 14px",
-              borderRadius: 999,
-              border: "1px solid rgba(255,255,255,0.08)",
-              background: "rgba(255,255,255,0.03)",
-              fontSize: 11,
-              fontWeight: 600,
-              color: "rgba(255,255,255,0.35)",
-              letterSpacing: "0.06em",
-              textTransform: "uppercase",
-            }}
+        <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
+          <a href="#problema" className="transition-colors hover:text-foreground">Problema</a>
+          <a href="#solucao" className="transition-colors hover:text-foreground">Solução</a>
+          <a href="#preco" className="transition-colors hover:text-foreground">Preço</a>
+          <a href="#faq" className="transition-colors hover:text-foreground">FAQ</a>
+        </nav>
+        <div className="flex items-center gap-3">
+          <Link href={LOGIN_URL} className="hidden text-sm text-muted-foreground transition-colors hover:text-foreground sm:inline">
+            Entrar
+          </Link>
+          <Link
+            href={SETUP_URL}
+            className="inline-flex items-center gap-1.5 rounded-full bg-gradient-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-glow transition-transform hover:scale-105"
           >
-            <span
-              style={{
-                width: 6, height: 6, borderRadius: "50%",
-                background: "#10b981",
-                boxShadow: "0 0 6px #10b981",
-                animation: "pulse 2s cubic-bezier(0.4,0,0.6,1) infinite",
-              }}
-            />
+            Testar grátis
+          </Link>
+        </div>
+      </div>
+    </header>
+  );
+}
+
+// ─── Hero ─────────────────────────────────────────────────────────────────────
+
+function Hero() {
+  return (
+    <section className="relative overflow-hidden bg-hero-glow">
+      <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-16 lg:grid-cols-[1.1fr_0.9fr] lg:py-24">
+        <div>
+          <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs font-medium text-accent-foreground">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary" />
             Para donos de escolinha de futebol no Brasil
           </div>
-
-          {/* H1 — The star of the show */}
-          <h1
-            style={{
-              fontSize: "clamp(48px, 8vw, 88px)",
-              fontWeight: 900,
-              letterSpacing: "-0.04em",
-              lineHeight: 0.92,
-              marginBottom: 32,
-              color: "#fff",
-            }}
-          >
-            Chega de cobrar<br />
-            mensalidade no{" "}
-            <span style={{ color: "#10b981" }}>WhatsApp.</span>
+          <h1 className="mt-5 text-5xl font-bold leading-[1.05] tracking-tight md:text-6xl lg:text-7xl">
+            Chega de cobrar mensalidade no{" "}
+            <span className="text-gradient-primary">WhatsApp.</span>
           </h1>
-
-          {/* Subheadline */}
-          <p
-            style={{
-              fontSize: "clamp(16px, 2vw, 20px)",
-              fontWeight: 300,
-              color: "rgba(255,255,255,0.35)",
-              lineHeight: 1.6,
-              maxWidth: 520,
-              margin: "0 auto 48px",
-            }}
-          >
-            FutSimples organiza alunos, cobra inadimplentes com PIX
-            e registra presença. Tudo no celular. Em 10 minutos.
+          <p className="mt-6 max-w-xl text-lg text-muted-foreground">
+            FutSimples organiza alunos, cobra inadimplentes com PIX e registra presença.
+            Tudo no celular. Em 10 minutos.
           </p>
-
-          {/* CTA */}
-          <div style={{ marginBottom: 48 }}>
+          <div className="mt-8 flex flex-wrap items-center gap-3">
             <Link
-              href="/setup"
-              className="inline-flex items-center gap-2 group transition-all duration-200"
-              style={{
-                padding: "16px 36px",
-                fontSize: 16,
-                fontWeight: 700,
-                color: "#fff",
-                background: "#10b981",
-                borderRadius: 14,
-                letterSpacing: "-0.02em",
-                boxShadow: "0 0 0 0 rgba(16,185,129,0.4)",
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.transform = "translateY(-2px)";
-                e.currentTarget.style.boxShadow = "0 12px 40px rgba(16,185,129,0.3)";
-                e.currentTarget.style.background = "#059669";
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "0 0 0 0 rgba(16,185,129,0.4)";
-                e.currentTarget.style.background = "#10b981";
-              }}
+              href={SETUP_URL}
+              className="inline-flex items-center gap-2 rounded-full bg-gradient-primary px-6 py-3.5 text-base font-semibold text-primary-foreground shadow-glow transition-transform hover:scale-105"
             >
               Testar grátis por 7 dias
-              <ArrowRight style={{ width: 18, height: 18 }} />
+              <ArrowRight className="h-4 w-4" />
             </Link>
+            <a
+              href="#solucao"
+              className="inline-flex items-center gap-2 rounded-full border border-border px-6 py-3.5 text-base font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              Ver como funciona
+            </a>
           </div>
-
-          {/* Trust signals */}
-          <div
-            className="flex flex-wrap items-center justify-center"
-            style={{ gap: "8px 24px" }}
-          >
-            {["Sem cartão de crédito", "7 dias grátis", "Cancela sem explicação"].map((item) => (
-              <span
-                key={item}
-                className="flex items-center gap-1.5"
-                style={{ fontSize: 12, color: "rgba(255,255,255,0.18)", fontWeight: 500 }}
-              >
-                <CheckCircle2 style={{ width: 12, height: 12, color: "rgba(16,185,129,0.4)" }} />
-                {item}
-              </span>
-            ))}
+          <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary" /> Sem cartão</span>
+            <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary" /> 7 dias grátis</span>
+            <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary" /> Cancele quando quiser</span>
           </div>
         </div>
 
-        {/* Scroll cue */}
-        <div
-          className="absolute bottom-10 left-1/2"
-          style={{ transform: "translateX(-50%)", opacity: 0.15 }}
-        >
-          <div style={{ width: 1, height: 40, background: "linear-gradient(to bottom, transparent, rgba(255,255,255,0.6))" }} />
+        <div className="relative mx-auto w-full max-w-sm lg:max-w-md">
+          <div className="absolute -inset-10 -z-10 bg-hero-glow blur-2xl" />
+          <Image
+            src="/mockup-cobranca.png"
+            alt="Tela do FutSimples mostrando cobrança em lote via PIX"
+            width={1024}
+            height={1536}
+            className="w-full drop-shadow-2xl"
+            priority
+          />
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* ────────────────────────────────────────────────────────────────
-          NÚMEROS — O custo do caos. 3 stats brutais.
-          Layout: 3 colunas separadas por dividers. Bento grid flush.
-          Components: stat gigante (80px bold), label, descrição pequena.
-          Cores: amber / rose / violet para cada stat.
-          Spacing: 64px interno por célula.
-          Interação: hover → célula levanta 4px com shadow suave.
-      ──────────────────────────────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-6" style={{ paddingTop: 64, paddingBottom: 128 }}>
-        <p
-          className="text-center"
-          style={{
-            fontSize: 11,
-            fontWeight: 700,
-            letterSpacing: "0.12em",
-            textTransform: "uppercase",
-            color: "rgba(255,255,255,0.18)",
-            marginBottom: 64,
-          }}
-        >
-          O que custa não ter controle
+// ─── Social Proof Bar ────────────────────────────────────────────────────────
+
+function SocialProofBar() {
+  const stats = [
+    { value: "R$900", label: "perdidos por mês em inadimplência sem controle" },
+    { value: "4h", label: "gastas todo mês cobrando aluno por aluno" },
+    { value: "0", label: "relatórios reais quando você usa só planilha" },
+  ];
+  return (
+    <section className="border-y border-border/50 bg-card/30">
+      <div className="mx-auto grid max-w-6xl gap-8 px-6 py-12 md:grid-cols-3">
+        {stats.map((s) => (
+          <div key={s.value} className="text-center md:text-left">
+            <div className="text-4xl font-bold text-gradient-primary md:text-5xl">{s.value}</div>
+            <p className="mt-2 text-sm text-muted-foreground">{s.label}</p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ─── Pain ─────────────────────────────────────────────────────────────────────
+
+function Pain() {
+  const items = [
+    { dor: "Cobrar atrasados um por um no WhatsApp", custo: "4h/mês" },
+    { dor: "Não saber quem está inadimplente agora", custo: "Dinheiro sumindo" },
+    { dor: "Presença no papel ou na memória", custo: "Zero histórico" },
+    { dor: "Fechar o mês no Excel e os números não batem", custo: "Decisão no chute" },
+    { dor: "Pai pergunta a frequência — você não sabe", custo: "Credibilidade" },
+  ];
+  return (
+    <section id="problema" className="mx-auto max-w-6xl px-6 py-20 lg:py-28">
+      <div className="mx-auto max-w-2xl text-center">
+        <span className="text-sm font-medium uppercase tracking-wider text-primary">O problema</span>
+        <h2 className="mt-3 text-4xl font-bold md:text-5xl">Você ainda faz isso todo mês?</h2>
+        <p className="mt-4 text-muted-foreground">
+          Não é falta de esforço — é tentar gerir uma empresa com ferramentas feitas para uso pessoal.
         </p>
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            border: "1px solid rgba(255,255,255,0.05)",
-            borderRadius: 20,
-            overflow: "hidden",
-          }}
-        >
-          {[
-            { value: "R$900", suffix: "/mês", label: "em inadimplência perdida", sub: "Uma escola de R$3k/mês perde até 30% sem perceber.", color: "#f59e0b" },
-            { value: "4h",    suffix: "",      label: "de cobranças manuais",     sub: "Mandando mensagem no WhatsApp um por um. Todo mês.",           color: "#f43f5e" },
-            { value: "0",     suffix: "",      label: "relatórios reais",         sub: "Sem dados, você decide no feeling. E o buraco cresce.",         color: "#a78bfa" },
-          ].map((stat, i) => (
-            <div
-              key={i}
-              className="transition-all duration-300"
-              style={{
-                background: "#050505",
-                padding: "52px 48px",
-                borderRight: i < 2 ? "1px solid rgba(255,255,255,0.05)" : "none",
-                cursor: "default",
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.015)";
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLDivElement).style.background = "#050505";
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "baseline", gap: 2, marginBottom: 12 }}>
-                <span style={{ fontSize: "clamp(52px,6vw,72px)", fontWeight: 900, letterSpacing: "-0.04em", color: stat.color, lineHeight: 1 }}>
-                  {stat.value}
-                </span>
-                {stat.suffix && (
-                  <span style={{ fontSize: 20, fontWeight: 700, color: stat.color, opacity: 0.6 }}>{stat.suffix}</span>
-                )}
+      </div>
+      <div className="mx-auto mt-12 max-w-3xl divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+        {items.map((it) => (
+          <div key={it.dor} className="flex items-center justify-between gap-4 p-5">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-destructive/15">
+                <X className="h-3.5 w-3.5 text-destructive" strokeWidth={3} />
               </div>
-              <p style={{ fontSize: 15, fontWeight: 600, color: "#fff", marginBottom: 10 }}>{stat.label}</p>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.28)", lineHeight: 1.6 }}>{stat.sub}</p>
+              <span className="text-foreground">{it.dor}</span>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* ────────────────────────────────────────────────────────────────
-          PROBLEMA — Recognition. Se identifica, fica.
-          Layout: 2 colunas (40/60). Título sticky esquerda.
-                  Lista de dores rolável à direita.
-          Components: rows com checkbox amber, texto, cost badge.
-          Typography: título 48px black. Rows 14px medium.
-          Spacing: seção py-20. Rows: p-5. Gap entre rows: 8px.
-          Interação: row hover → bg levemente mais claro + text mais opaco.
-      ──────────────────────────────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-6" style={{ paddingBottom: 128 }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1.5fr",
-            gap: 80,
-            alignItems: "start",
-          }}
-        >
-          {/* Left — sticky title */}
-          <div style={{ position: "sticky", top: 96 }}>
-            <p
-              style={{
-                fontSize: 11, fontWeight: 700, letterSpacing: "0.12em",
-                textTransform: "uppercase", color: "rgba(255,255,255,0.18)",
-                marginBottom: 24,
-              }}
-            >
-              O problema
-            </p>
-            <h2
-              style={{
-                fontSize: "clamp(32px,4vw,48px)",
-                fontWeight: 900,
-                letterSpacing: "-0.03em",
-                lineHeight: 1.0,
-                color: "#fff",
-                marginBottom: 20,
-              }}
-            >
-              Você ainda faz isso todo mês?
-            </h2>
-            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.28)", lineHeight: 1.7 }}>
-              Não é falta de esforço — é tentar gerir uma empresa com ferramentas feitas para uso pessoal.
-            </p>
+            <span className="shrink-0 rounded-full bg-destructive/10 px-3 py-1 text-xs font-medium text-destructive">
+              {it.custo}
+            </span>
           </div>
+        ))}
+      </div>
+      <p className="mx-auto mt-8 max-w-xl text-center text-sm text-muted-foreground">
+        Planilha e WhatsApp não foram feitos para gerir uma empresa.
+      </p>
+    </section>
+  );
+}
 
-          {/* Right — pain rows */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {PAINS.map((item, i) => (
-              <div
-                key={i}
-                className="transition-all duration-150"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 16,
-                  padding: "18px 22px",
-                  borderRadius: 12,
-                  border: "1px solid rgba(255,255,255,0.05)",
-                  background: "rgba(255,255,255,0.02)",
-                  cursor: "default",
-                }}
-                onMouseEnter={e => {
-                  (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.04)";
-                  (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.08)";
-                }}
-                onMouseLeave={e => {
-                  (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.02)";
-                  (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.05)";
-                }}
-              >
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div
-                    style={{
-                      width: 20, height: 20, borderRadius: 6, flexShrink: 0,
-                      border: "1px solid rgba(245,158,11,0.3)",
-                      background: "rgba(245,158,11,0.08)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                    }}
-                  >
-                    <CheckCircle2 style={{ width: 11, height: 11, color: "#f59e0b" }} />
-                  </div>
-                  <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.65)" }}>
-                    {item.label}
-                  </span>
-                </div>
-                <span
-                  style={{
-                    fontSize: 11, fontWeight: 700, color: "rgba(245,158,11,0.55)",
-                    whiteSpace: "nowrap", flexShrink: 0,
-                    display: "none",
-                  }}
-                  className="sm:block"
-                >
-                  {item.cost}
-                </span>
-              </div>
-            ))}
+// ─── Solution ─────────────────────────────────────────────────────────────────
 
-            <p
-              style={{
-                fontSize: 12, color: "rgba(255,255,255,0.18)",
-                fontStyle: "italic", paddingTop: 8, paddingLeft: 4,
-              }}
-            >
-              Planilha e WhatsApp não foram feitos para gerir uma empresa.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* ────────────────────────────────────────────────────────────────
-          SOLUÇÃO — Antes × Depois em tabela 3 colunas.
-          Layout: cada feature = 1 row dividido em 3 colunas:
-                  [Feature] [Hoje] [Com FutSimples]
-          Components: ícone colorido + label | texto fraco | texto forte.
-          Typography: label 11px uppercase. Textos 13px.
-          Cores: coluna Hoje bg rose/[0.03]. Coluna FutSimples bg emerald/[0.04].
-          Spacing: seção py-32. Célula p-6.
-          Interação: row hover → borda ligeiramente mais visível.
-          Header fixo com labels das colunas.
-      ──────────────────────────────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-6" style={{ paddingBottom: 128 }}>
-        <div className="text-center" style={{ marginBottom: 80 }}>
-          <p
-            style={{
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.12em",
-              textTransform: "uppercase", color: "rgba(255,255,255,0.18)",
-              marginBottom: 24,
-            }}
-          >
-            A solução
-          </p>
-          <h2
-            style={{
-              fontSize: "clamp(32px,4vw,52px)",
-              fontWeight: 900, letterSpacing: "-0.03em",
-              color: "#fff", marginBottom: 16,
-            }}
-          >
-            Isso muda em 10 minutos.
-          </h2>
-          <p style={{ fontSize: 15, color: "rgba(255,255,255,0.28)", maxWidth: 400, margin: "0 auto" }}>
+function Solution() {
+  const features = [
+    {
+      icon: Zap,
+      title: "Cobrança em lote",
+      hoje: "Você manda mensagem no WhatsApp um por um. Todo mês. Do zero.",
+      novo: "Todos os atrasados numa tela. PIX para todos em 2 cliques.",
+      img: "/mockup-cobranca.png",
+    },
+    {
+      icon: ClipboardCheck,
+      title: "Presença digital",
+      hoje: "Papel. Pai liga perguntando se o filho foi ao treino.",
+      novo: "Portal do responsável. Pai acompanha — sem ligar para você.",
+      img: "/mockup-presenca.png",
+    },
+    {
+      icon: Wallet,
+      title: "Financeiro real",
+      hoje: "Você tenta fechar as contas no fim do mês e os números não batem.",
+      novo: "Receitas e despesas no sistema. PDF em um clique.",
+      img: "/mockup-financeiro.png",
+    },
+  ];
+  return (
+    <section id="solucao" className="border-t border-border/50 bg-card/20">
+      <div className="mx-auto max-w-6xl px-6 py-20 lg:py-28">
+        <div className="mx-auto max-w-2xl text-center">
+          <span className="text-sm font-medium uppercase tracking-wider text-primary">A solução</span>
+          <h2 className="mt-3 text-4xl font-bold md:text-5xl">Isso muda em 10 minutos.</h2>
+          <p className="mt-4 text-muted-foreground">
             Cada função existe para eliminar algo que drena tempo ou dinheiro hoje.
           </p>
         </div>
 
-        {/* Table header */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr 1fr",
-            marginBottom: 6,
-            padding: "0 0 12px",
-            borderBottom: "1px solid rgba(255,255,255,0.04)",
-          }}
-        >
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.12)" }}>
-            Funcionalidade
-          </p>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(244,63,94,0.4)", paddingLeft: 24 }}>
-            Hoje
-          </p>
-          <p style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(16,185,129,0.6)", paddingLeft: 24 }}>
-            Com FutSimples
-          </p>
-        </div>
-
-        {/* Feature rows */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          {FEATURES.map((f, i) => (
+        <div className="mt-16 space-y-24">
+          {features.map((f, i) => (
             <div
-              key={i}
-              className="transition-all duration-150"
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr 1fr",
-                borderRadius: 12,
-                overflow: "hidden",
-                border: "1px solid rgba(255,255,255,0.04)",
-              }}
-              onMouseEnter={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}
-              onMouseLeave={e => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.04)")}
+              key={f.title}
+              className={`grid items-center gap-10 lg:grid-cols-2 ${i % 2 === 1 ? "lg:[&>div:first-child]:order-2" : ""}`}
             >
-              {/* Col 1 — Feature */}
-              <div
-                style={{
-                  padding: "24px 24px",
-                  background: "rgba(255,255,255,0.02)",
-                  borderRight: "1px solid rgba(255,255,255,0.04)",
-                  display: "flex", flexDirection: "column", gap: 10, justifyContent: "center",
-                }}
-              >
-                <div
-                  style={{
-                    width: 36, height: 36, borderRadius: 10,
-                    background: f.accent + "22",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}
-                >
-                  <f.icon style={{ width: 17, height: 17, color: f.accent }} />
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-accent-foreground">
+                  <f.icon className="h-3.5 w-3.5" />
+                  {f.title}
                 </div>
-                <p style={{ fontSize: 14, fontWeight: 700, color: "#fff" }}>{f.label}</p>
+                <h3 className="mt-4 text-3xl font-bold md:text-4xl">{f.novo.split(".")[0]}.</h3>
+                <div className="mt-6 space-y-3">
+                  <div className="flex items-start gap-3 rounded-xl border border-border bg-card/60 p-4">
+                    <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-destructive/15">
+                      <X className="h-3 w-3 text-destructive" strokeWidth={3} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Hoje</div>
+                      <p className="text-sm text-foreground/80">{f.hoje}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+                    <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/20">
+                      <Check className="h-3 w-3 text-primary" strokeWidth={3} />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-wide text-primary">Com FutSimples</div>
+                      <p className="text-sm text-foreground">{f.novo}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
-
-              {/* Col 2 — Before */}
-              <div
-                style={{
-                  padding: "24px 24px",
-                  background: "rgba(244,63,94,0.025)",
-                  borderRight: "1px solid rgba(255,255,255,0.04)",
-                  display: "flex", alignItems: "center",
-                }}
-              >
-                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.32)", lineHeight: 1.6 }}>{f.before}</p>
-              </div>
-
-              {/* Col 3 — After */}
-              <div
-                style={{
-                  padding: "24px 24px",
-                  background: "rgba(16,185,129,0.03)",
-                  display: "flex", alignItems: "center",
-                }}
-              >
-                <p style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", lineHeight: 1.6 }}>{f.after}</p>
+              <div className="relative mx-auto w-full max-w-xs">
+                <div className="absolute -inset-8 -z-10 bg-hero-glow blur-2xl" />
+                <Image
+                  src={f.img}
+                  alt={`Tela do FutSimples — ${f.title}`}
+                  width={1024}
+                  height={1536}
+                  loading="lazy"
+                  className="w-full drop-shadow-2xl"
+                />
               </div>
             </div>
           ))}
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* ────────────────────────────────────────────────────────────────
-          COMO FUNCIONA — 3 passos editoriais.
-          Layout: 3 colunas com linha conectora horizontal (desktop).
-          Components: círculo com número grande faded, título, desc.
-          Typography: número 12px uppercase. título 16px bold. desc 13px.
-          Cores: números em white/10. Linha conectora white/[0.04].
-          Spacing: seção py-24. Cards p-8. Gap 32px.
-          Interação: hover no card → número fica emerald.
-          CTA secundário abaixo.
-      ──────────────────────────────────────────────────────────────── */}
-      <section className="max-w-6xl mx-auto px-6" style={{ paddingBottom: 128 }}>
-        <div className="text-center" style={{ marginBottom: 80 }}>
-          <p
-            style={{
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.12em",
-              textTransform: "uppercase", color: "rgba(255,255,255,0.18)",
-              marginBottom: 24,
-            }}
-          >
-            Como funciona
-          </p>
-          <h2
-            style={{
-              fontSize: "clamp(32px,4vw,52px)",
-              fontWeight: 900, letterSpacing: "-0.03em", color: "#fff",
-            }}
-          >
-            Em 10 minutos, funcionando.
-          </h2>
-        </div>
+// ─── How It Works ─────────────────────────────────────────────────────────────
 
-        {/* Steps */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(3, 1fr)",
-            gap: 16,
-            position: "relative",
-          }}
-        >
-          {/* Connector line */}
-          <div
-            className="hidden md:block"
-            style={{
-              position: "absolute",
-              top: 28,
-              left: "calc(16.67% + 4px)",
-              right: "calc(16.67% + 4px)",
-              height: 1,
-              background: "rgba(255,255,255,0.05)",
-              pointerEvents: "none",
-            }}
-          />
-
-          {STEPS.map((s, i) => (
-            <div
-              key={i}
-              className="group transition-all duration-200"
-              style={{
-                padding: "32px",
-                borderRadius: 16,
-                border: "1px solid rgba(255,255,255,0.05)",
-                background: "rgba(255,255,255,0.02)",
-                cursor: "default",
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.035)";
-                (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.08)";
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.02)";
-                (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.05)";
-              }}
-            >
-              {/* Step circle */}
-              <div
-                style={{
-                  width: 48, height: 48,
-                  borderRadius: 14,
-                  border: "1px solid rgba(255,255,255,0.07)",
-                  background: "rgba(255,255,255,0.03)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  marginBottom: 24,
-                  transition: "all 0.2s",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: 11, fontWeight: 900, letterSpacing: "0.08em",
-                    color: "rgba(255,255,255,0.2)",
-                  }}
-                >
-                  {s.n}
-                </span>
-              </div>
-              <h3 style={{ fontSize: 15, fontWeight: 700, color: "#fff", marginBottom: 10 }}>{s.title}</h3>
-              <p style={{ fontSize: 13, color: "rgba(255,255,255,0.3)", lineHeight: 1.7 }}>{s.desc}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* CTA under steps */}
-        <div className="text-center" style={{ marginTop: 56 }}>
-          <Link
-            href="/setup"
-            className="inline-flex items-center gap-2 transition-all duration-200"
-            style={{
-              padding: "14px 32px",
-              fontSize: 14,
-              fontWeight: 700,
-              color: "#000",
-              background: "#fff",
-              borderRadius: 12,
-              letterSpacing: "-0.01em",
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.transform = "translateY(-2px)";
-              e.currentTarget.style.background = "rgba(255,255,255,0.9)";
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.background = "#fff";
-            }}
-          >
-            Começar agora — é grátis
-            <ArrowRight style={{ width: 16, height: 16 }} />
-          </Link>
-        </div>
-      </section>
-
-      {/* ────────────────────────────────────────────────────────────────
-          PARA QUEM — Qualificação. 2 colunas.
-          Layout: grid 2 colunas. Coluna esquerda: verde. Direita: neutra.
-          Components: list items com ícones. Divider interno na direita.
-          Typography: label uppercase 10px. Items 13px.
-          Cores: left border emerald/20 bg emerald/[0.04].
-                 right border white/[0.05] bg white/[0.02].
-          Spacing: seção py-24. Cards p-8.
-      ──────────────────────────────────────────────────────────────── */}
-      <section className="max-w-4xl mx-auto px-6" style={{ paddingBottom: 128 }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 16,
-          }}
-        >
-          {/* Is for you */}
-          <div
-            style={{
-              padding: 40,
-              borderRadius: 20,
-              border: "1px solid rgba(16,185,129,0.18)",
-              background: "rgba(16,185,129,0.04)",
-            }}
-          >
-            <p
-              style={{
-                fontSize: 10, fontWeight: 800, letterSpacing: "0.14em",
-                textTransform: "uppercase", color: "#10b981",
-                marginBottom: 28,
-              }}
-            >
-              É pra você se...
-            </p>
-            <ul style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              {FOR_YOU.map((item) => (
-                <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                  <CheckCircle2 style={{ width: 15, height: 15, color: "#10b981", flexShrink: 0, marginTop: 1 }} />
-                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.65)", lineHeight: 1.5 }}>{item}</span>
-                </li>
-              ))}
-            </ul>
+function HowItWorks() {
+  const steps = [
+    { n: "01", t: "Cria sua conta", d: "Email e senha. 2 minutos. Sem cartão." },
+    { n: "02", t: "Cadastra os alunos", d: "Nome, turma, responsável. No seu ritmo." },
+    { n: "03", t: "Usa na beira do campo", d: "Presença, cobrança, financeiro. No celular." },
+  ];
+  return (
+    <section className="mx-auto max-w-6xl px-6 py-20 lg:py-28">
+      <div className="mx-auto max-w-2xl text-center">
+        <span className="text-sm font-medium uppercase tracking-wider text-primary">Como funciona</span>
+        <h2 className="mt-3 text-4xl font-bold md:text-5xl">Em 10 minutos, funcionando.</h2>
+      </div>
+      <div className="mt-12 grid gap-6 md:grid-cols-3">
+        {steps.map((s) => (
+          <div key={s.n} className="rounded-2xl border border-border bg-card p-6 transition-colors hover:border-primary/40">
+            <div className="text-5xl font-bold text-gradient-primary">{s.n}</div>
+            <h3 className="mt-4 text-xl font-semibold">{s.t}</h3>
+            <p className="mt-2 text-sm text-muted-foreground">{s.d}</p>
           </div>
+        ))}
+      </div>
+      <div className="mt-10 text-center">
+        <Link
+          href={SETUP_URL}
+          className="inline-flex items-center gap-2 rounded-full bg-gradient-primary px-6 py-3.5 font-semibold text-primary-foreground shadow-glow transition-transform hover:scale-105"
+        >
+          Começar agora — é grátis
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+    </section>
+  );
+}
 
-          {/* Not for you */}
-          <div
-            style={{
-              padding: 40,
-              borderRadius: 20,
-              border: "1px solid rgba(255,255,255,0.05)",
-              background: "rgba(255,255,255,0.02)",
-            }}
-          >
-            <p
-              style={{
-                fontSize: 10, fontWeight: 800, letterSpacing: "0.14em",
-                textTransform: "uppercase", color: "rgba(255,255,255,0.2)",
-                marginBottom: 28,
-              }}
-            >
-              Não é pra você se...
-            </p>
-            <ul style={{ display: "flex", flexDirection: "column", gap: 16, marginBottom: 32 }}>
-              {NOT_FOR_YOU.map((item) => (
-                <li key={item} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                  <X style={{ width: 15, height: 15, color: "rgba(255,255,255,0.15)", flexShrink: 0, marginTop: 1 }} />
-                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.22)", lineHeight: 1.5 }}>{item}</span>
-                </li>
-              ))}
-            </ul>
-            <div
-              style={{
-                paddingTop: 24,
-                borderTop: "1px solid rgba(255,255,255,0.05)",
-              }}
-            >
-              <p style={{ fontSize: 12, color: "rgba(255,255,255,0.18)", lineHeight: 1.7 }}>
-                FutSimples resolve o que mais dói para dono de escolinha. Não resolvemos tudo — de propósito.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+// ─── Fit For ──────────────────────────────────────────────────────────────────
 
-      {/* ────────────────────────────────────────────────────────────────
-          PREÇO — Clareza total. Sem fricção.
-          Layout: toggle centrado + 2 cards lado a lado. max-w-2xl.
-          Components: toggle pill (mensal/anual), 2 cards, feature list.
-          Typography: preço 56px black. Label 12px. Features 13px.
-          Cores: card ativo → border emerald/30 bg emerald/[0.05].
-          Spacing: seção py-32. Cards p-8.
-          Interação: toggle switch smooth. Botão CTA hover → translateY.
-      ──────────────────────────────────────────────────────────────── */}
-      <section className="max-w-4xl mx-auto px-6" id="planos" style={{ paddingBottom: 128 }}>
-        <div className="text-center" style={{ marginBottom: 64 }}>
-          <p
-            style={{
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.12em",
-              textTransform: "uppercase", color: "rgba(255,255,255,0.18)",
-              marginBottom: 24,
-            }}
-          >
-            Preço
-          </p>
-          <h2
-            style={{
-              fontSize: "clamp(32px,4vw,52px)",
-              fontWeight: 900, letterSpacing: "-0.03em",
-              color: "#fff", marginBottom: 16,
-            }}
-          >
-            Quanto custa?
-          </h2>
-          <p style={{ fontSize: 15, color: "rgba(255,255,255,0.28)" }}>
-            Menos do que um mês de inadimplência não controlada.
-          </p>
-        </div>
-
-        {/* Toggle */}
-        <div style={{ display: "flex", justifyContent: "center", marginBottom: 40 }}>
-          <div
-            style={{
-              display: "inline-flex",
-              padding: 4,
-              borderRadius: 14,
-              border: "1px solid rgba(255,255,255,0.07)",
-              background: "rgba(255,255,255,0.03)",
-              gap: 2,
-            }}
-          >
-            {(["monthly", "annual"] as const).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPlan(p)}
-                className="transition-all duration-200"
-                style={{
-                  padding: "8px 24px",
-                  borderRadius: 10,
-                  fontSize: 13,
-                  fontWeight: 600,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  background: plan === p ? "#fff" : "transparent",
-                  color: plan === p ? "#000" : "rgba(255,255,255,0.3)",
-                  border: "none",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
-                }}
-              >
-                {p === "monthly" ? "Mensal" : "Anual"}
-                {p === "annual" && (
-                  <span
-                    style={{
-                      fontSize: 9,
-                      fontWeight: 900,
-                      padding: "2px 6px",
-                      borderRadius: 999,
-                      background: plan === "annual" ? "#10b981" : "rgba(16,185,129,0.2)",
-                      color: plan === "annual" ? "#fff" : "#10b981",
-                      letterSpacing: "0.03em",
-                    }}
-                  >
-                    -17%
-                  </span>
-                )}
-              </button>
+function FitFor() {
+  const yes = [
+    "Tem escolinha com 10+ alunos",
+    "Cobra mensalidade todo mês",
+    "Quer saber quem está em atraso sem calcular",
+    "Quer parar de usar planilha para tudo",
+    "Quer registrar presença rápido",
+    "Quer relatório real no fim do mês",
+  ];
+  const no = [
+    "Você quer um sistema de ERP empresarial",
+    "Você não cobra mensalidade",
+    "Você prefere planilha e está satisfeito",
+  ];
+  return (
+    <section className="border-t border-border/50 bg-card/20">
+      <div className="mx-auto grid max-w-5xl gap-6 px-6 py-20 md:grid-cols-2 lg:py-24">
+        <div className="rounded-2xl border border-primary/30 bg-primary/5 p-7">
+          <h3 className="text-xl font-bold">É pra você se...</h3>
+          <ul className="mt-5 space-y-3">
+            {yes.map((y) => (
+              <li key={y} className="flex items-start gap-3 text-sm">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={3} />
+                <span>{y}</span>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
-
-        {/* Cards */}
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 16,
-            maxWidth: 680,
-            margin: "0 auto",
-          }}
-        >
-          {/* Mensal */}
-          <div
-            className="transition-all duration-300"
-            style={{
-              padding: 36,
-              borderRadius: 20,
-              border: plan === "monthly" ? "1px solid rgba(16,185,129,0.3)" : "1px solid rgba(255,255,255,0.05)",
-              background: plan === "monthly" ? "rgba(16,185,129,0.05)" : "rgba(255,255,255,0.02)",
-            }}
-          >
-            <p style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.25)", marginBottom: 20 }}>Mensal</p>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 2, marginBottom: 4 }}>
-              <span style={{ fontSize: "clamp(40px,5vw,52px)", fontWeight: 900, letterSpacing: "-0.04em", color: "#fff" }}>R$59</span>
-              <span style={{ fontSize: 20, fontWeight: 700, color: "rgba(255,255,255,0.5)" }}>,90</span>
-              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", marginLeft: 4 }}>/mês</span>
-            </div>
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.2)", marginBottom: 28 }}>Cobrado mensalmente.</p>
-            <ul style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
-              {FEATURES_LIST.map((item) => (
-                <li key={item} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <CheckCircle2 style={{ width: 14, height: 14, color: "rgba(16,185,129,0.5)", flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.45)" }}>{item}</span>
-                </li>
-              ))}
-            </ul>
-            <Link
-              href="/setup"
-              className="block text-center transition-all duration-200"
-              style={{
-                padding: "12px",
-                borderRadius: 12,
-                border: "1px solid rgba(16,185,129,0.35)",
-                color: "#10b981",
-                fontSize: 13,
-                fontWeight: 700,
-              }}
-              onMouseEnter={e => (e.currentTarget.style.background = "rgba(16,185,129,0.08)")}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-            >
-              Testar 7 dias grátis
-            </Link>
-          </div>
-
-          {/* Anual */}
-          <div
-            className="transition-all duration-300"
-            style={{
-              padding: 36,
-              borderRadius: 20,
-              border: plan === "annual" ? "1px solid rgba(16,185,129,0.3)" : "1px solid rgba(255,255,255,0.05)",
-              background: plan === "annual" ? "rgba(16,185,129,0.05)" : "rgba(255,255,255,0.02)",
-              position: "relative",
-            }}
-          >
-            {/* Badge */}
-            <div style={{ position: "absolute", top: -12, left: 28 }}>
-              <span
-                style={{
-                  display: "inline-flex", alignItems: "center", gap: 4,
-                  padding: "4px 10px",
-                  borderRadius: 999,
-                  background: "#10b981",
-                  color: "#fff",
-                  fontSize: 10,
-                  fontWeight: 800,
-                  letterSpacing: "0.02em",
-                }}
-              >
-                <Star style={{ width: 9, height: 9 }} /> Melhor valor
-              </span>
-            </div>
-
-            <p style={{ fontSize: 12, fontWeight: 600, color: "rgba(255,255,255,0.25)", marginBottom: 20 }}>Anual</p>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 2, marginBottom: 4 }}>
-              <span style={{ fontSize: "clamp(40px,5vw,52px)", fontWeight: 900, letterSpacing: "-0.04em", color: "#fff" }}>R$599</span>
-              <span style={{ fontSize: 13, color: "rgba(255,255,255,0.25)", marginLeft: 4 }}>/ano</span>
-            </div>
-            <p style={{ fontSize: 12, color: "#10b981", fontWeight: 600, marginBottom: 28 }}>
-              R$49,92/mês · Economize R$119,80
-            </p>
-            <ul style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 28 }}>
-              {FEATURES_LIST.map((item) => (
-                <li key={item} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <CheckCircle2 style={{ width: 14, height: 14, color: "rgba(16,185,129,0.5)", flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: "rgba(255,255,255,0.45)" }}>{item}</span>
-                </li>
-              ))}
-            </ul>
-            <Link
-              href="/setup"
-              className="block text-center transition-all duration-200"
-              style={{
-                padding: "12px",
-                borderRadius: 12,
-                background: "#10b981",
-                color: "#fff",
-                fontSize: 13,
-                fontWeight: 700,
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = "#059669";
-                e.currentTarget.style.transform = "translateY(-1px)";
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = "#10b981";
-                e.currentTarget.style.transform = "translateY(0)";
-              }}
-            >
-              Testar 7 dias grátis →
-            </Link>
-          </div>
-        </div>
-
-        <p
-          className="text-center"
-          style={{ fontSize: 11, color: "rgba(255,255,255,0.12)", marginTop: 24 }}
-        >
-          Stripe · Cartão ou Boleto · Cancele quando quiser
-        </p>
-      </section>
-
-      {/* ────────────────────────────────────────────────────────────────
-          FAQ — Accordion limpo. Max-w-2xl centralizado.
-          Layout: coluna única. max-w-2xl.
-          Components: accordion rows. ChevronDown/Up.
-          Typography: pergunta 14px medium. Resposta 13px/40%.
-          Cores: row border white/[0.05]. Hover bg white/[0.02].
-          Spacing: seção py-24. Row px-6 py-4.
-          Interação: open/close suave com animação de altura.
-      ──────────────────────────────────────────────────────────────── */}
-      <section className="max-w-2xl mx-auto px-6" style={{ paddingBottom: 128 }}>
-        <div className="text-center" style={{ marginBottom: 64 }}>
-          <p
-            style={{
-              fontSize: 11, fontWeight: 700, letterSpacing: "0.12em",
-              textTransform: "uppercase", color: "rgba(255,255,255,0.18)",
-              marginBottom: 24,
-            }}
-          >
-            FAQ
+        <div className="rounded-2xl border border-border bg-card p-7">
+          <h3 className="text-xl font-bold">Não é pra você se...</h3>
+          <ul className="mt-5 space-y-3">
+            {no.map((n) => (
+              <li key={n} className="flex items-start gap-3 text-sm text-muted-foreground">
+                <X className="mt-0.5 h-4 w-4 shrink-0 text-destructive" strokeWidth={3} />
+                <span>{n}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-6 text-xs text-muted-foreground">
+            FutSimples resolve o que mais dói para dono de escolinha. Não resolvemos tudo — de propósito.
           </p>
-          <h2
-            style={{
-              fontSize: "clamp(28px,3.5vw,44px)",
-              fontWeight: 900, letterSpacing: "-0.03em", color: "#fff",
-            }}
-          >
-            Dúvidas frequentes
-          </h2>
         </div>
+      </div>
+    </section>
+  );
+}
 
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {FAQS.map((faq, i) => (
-            <div
-              key={i}
-              style={{
-                borderRadius: 12,
-                border: "1px solid rgba(255,255,255,0.05)",
-                overflow: "hidden",
-              }}
-            >
+// ─── Pricing ──────────────────────────────────────────────────────────────────
+
+function Pricing() {
+  const [annual, setAnnual] = useState(true);
+  const features = [
+    "Alunos ilimitados",
+    "Cobrança em lote com PIX",
+    "Portal do responsável",
+    "Presença digital",
+    "Agenda de treinos",
+    "Relatório financeiro PDF",
+    "Convite de professores",
+  ];
+  return (
+    <section id="preco" className="mx-auto max-w-5xl px-6 py-20 lg:py-28">
+      <div className="mx-auto max-w-2xl text-center">
+        <span className="text-sm font-medium uppercase tracking-wider text-primary">Preço</span>
+        <h2 className="mt-3 text-4xl font-bold md:text-5xl">Quanto custa?</h2>
+        <p className="mt-4 text-muted-foreground">
+          Menos do que um mês de inadimplência não controlada.
+        </p>
+      </div>
+
+      <div className="mt-10 flex justify-center">
+        <div className="inline-flex rounded-full border border-border bg-card p-1">
+          <button
+            onClick={() => setAnnual(false)}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+              !annual ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+            }`}
+          >
+            Mensal
+          </button>
+          <button
+            onClick={() => setAnnual(true)}
+            className={`rounded-full px-4 py-1.5 text-sm font-medium transition ${
+              annual ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+            }`}
+          >
+            Anual <span className="ml-1 text-xs opacity-80">−17%</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-10 grid gap-6 md:grid-cols-2">
+        <PriceCard
+          title="Mensal"
+          price="R$ 59,90"
+          per="/mês"
+          note="Cobrado mensalmente."
+          features={features}
+          highlighted={!annual}
+        />
+        <PriceCard
+          title="Anual"
+          price="R$ 49,92"
+          per="/mês"
+          note="R$ 599/ano · Economize R$ 119,80"
+          features={features}
+          badge="Melhor valor"
+          highlighted={annual}
+        />
+      </div>
+      <p className="mt-6 text-center text-xs text-muted-foreground">
+        Stripe · Cartão ou Boleto · Cancele quando quiser
+      </p>
+    </section>
+  );
+}
+
+function PriceCard({
+  title, price, per, note, features, highlighted, badge,
+}: {
+  title: string; price: string; per: string; note: string;
+  features: string[]; highlighted?: boolean; badge?: string;
+}) {
+  return (
+    <div
+      className={`relative rounded-2xl border p-7 ${
+        highlighted ? "border-primary/50 bg-primary/5 shadow-glow" : "border-border bg-card"
+      }`}
+    >
+      {badge && (
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
+          {badge}
+        </span>
+      )}
+      <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">{title}</h3>
+      <div className="mt-3 flex items-baseline gap-1">
+        <span className="text-5xl font-bold">{price}</span>
+        <span className="text-muted-foreground">{per}</span>
+      </div>
+      <p className="mt-2 text-sm text-muted-foreground">{note}</p>
+      <Link
+        href={SETUP_URL}
+        className={`mt-6 inline-flex w-full items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-semibold transition ${
+          highlighted
+            ? "bg-gradient-primary text-primary-foreground shadow-glow hover:scale-[1.02]"
+            : "border border-border bg-background text-foreground hover:bg-muted"
+        }`}
+      >
+        Testar 7 dias grátis
+        <ArrowRight className="h-4 w-4" />
+      </Link>
+      <ul className="mt-6 space-y-2.5">
+        {features.map((f) => (
+          <li key={f} className="flex items-start gap-2 text-sm">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={3} />
+            <span>{f}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// ─── FAQ ──────────────────────────────────────────────────────────────────────
+
+function Faq() {
+  const items = [
+    { q: "Preciso de cartão para testar?", a: "Não. Você cria a conta com email e senha e usa 7 dias completos sem informar nenhum cartão." },
+    { q: "Quanto tempo leva para configurar?", a: "Em média 10 minutos. Cria a conta, cadastra os alunos e já pode cobrar e marcar presença." },
+    { q: "Funciona no celular?", a: "Sim. Foi pensado para ser usado na beira do campo, no celular. Funciona no computador também." },
+    { q: "Quantos alunos posso cadastrar?", a: "Ilimitado em qualquer plano. Sem cobrança por aluno." },
+    { q: "E se eu não gostar?", a: "Cancela com um clique. Sem ligação, sem explicação, sem multa." },
+    { q: "Qual a diferença entre mensal e anual?", a: "Mesmas funcionalidades. O plano anual sai 17% mais barato (cerca de 2 meses grátis)." },
+  ];
+  const [open, setOpen] = useState<number | null>(0);
+  return (
+    <section id="faq" className="border-t border-border/50 bg-card/20">
+      <div className="mx-auto max-w-3xl px-6 py-20 lg:py-28">
+        <div className="text-center">
+          <span className="text-sm font-medium uppercase tracking-wider text-primary">FAQ</span>
+          <h2 className="mt-3 text-4xl font-bold md:text-5xl">Dúvidas frequentes</h2>
+        </div>
+        <div className="mt-10 divide-y divide-border overflow-hidden rounded-2xl border border-border bg-card">
+          {items.map((it, i) => (
+            <div key={it.q}>
               <button
-                className="w-full transition-colors duration-150"
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  gap: 24,
-                  padding: "18px 22px",
-                  textAlign: "left",
-                  background: openFaq === i ? "rgba(255,255,255,0.03)" : "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  width: "100%",
-                }}
-                onClick={() => setOpenFaq(openFaq === i ? null : i)}
-                onMouseEnter={e => { if (openFaq !== i) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.02)"; }}
-                onMouseLeave={e => { if (openFaq !== i) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
+                onClick={() => setOpen(open === i ? null : i)}
+                className="flex w-full items-center justify-between gap-4 p-5 text-left transition-colors hover:bg-muted/40"
               >
-                <span style={{ fontSize: 14, fontWeight: 500, color: "rgba(255,255,255,0.7)" }}>{faq.q}</span>
-                {openFaq === i
-                  ? <ChevronUp style={{ width: 16, height: 16, color: "#10b981", flexShrink: 0 }} />
-                  : <ChevronDown style={{ width: 16, height: 16, color: "rgba(255,255,255,0.2)", flexShrink: 0 }} />
-                }
+                <span className="font-medium">{it.q}</span>
+                <ChevronDown
+                  className={`h-5 w-5 shrink-0 text-muted-foreground transition-transform ${
+                    open === i ? "rotate-180" : ""
+                  }`}
+                />
               </button>
-              {openFaq === i && (
-                <div
-                  style={{
-                    padding: "0 22px 20px",
-                    borderTop: "1px solid rgba(255,255,255,0.04)",
-                  }}
-                >
-                  <p style={{ fontSize: 13, color: "rgba(255,255,255,0.38)", lineHeight: 1.7, paddingTop: 16 }}>
-                    {faq.a}
-                  </p>
-                </div>
+              {open === i && (
+                <div className="px-5 pb-5 text-sm text-muted-foreground">{it.a}</div>
               )}
             </div>
           ))}
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* ────────────────────────────────────────────────────────────────
-          CTA FINAL — Full bleed. Apple-style. Uma mensagem. Um botão.
-          Layout: coluna centralizada. max-w-3xl.
-          Typography: headline 80px / black / -0.04em. Brutalmente grande.
-          Cores: headline split — branco / branco/20 na segunda linha.
-          Spacing: seção py-48. Muito ar.
-          Interação: botão primary com hover lift forte.
-      ──────────────────────────────────────────────────────────────── */}
-      <section
-        style={{ paddingTop: 120, paddingBottom: 160, paddingLeft: 24, paddingRight: 24 }}
-      >
-        <div style={{ maxWidth: 680, margin: "0 auto", textAlign: "center" }}>
-          <h2
-            style={{
-              fontSize: "clamp(40px,7vw,80px)",
-              fontWeight: 900,
-              letterSpacing: "-0.04em",
-              lineHeight: 0.95,
-              color: "#fff",
-              marginBottom: 32,
-            }}
-          >
-            Cada mês que passa,<br />
-            <span style={{ color: "rgba(255,255,255,0.18)" }}>é dinheiro parado.</span>
-          </h2>
+// ─── Final CTA ────────────────────────────────────────────────────────────────
 
-          <p
-            style={{
-              fontSize: 17,
-              fontWeight: 300,
-              color: "rgba(255,255,255,0.28)",
-              marginBottom: 56,
-              maxWidth: 360,
-              margin: "0 auto 56px",
-            }}
-          >
-            7 dias grátis. Sem cartão. Se não resolver — não paga nada.
-          </p>
-
-          <Link
-            href="/setup"
-            className="inline-flex items-center gap-2 transition-all duration-200"
-            style={{
-              padding: "18px 44px",
-              fontSize: 17,
-              fontWeight: 700,
-              color: "#fff",
-              background: "#10b981",
-              borderRadius: 16,
-              letterSpacing: "-0.02em",
-              boxShadow: "0 0 0 0 rgba(16,185,129,0)",
-              display: "inline-flex",
-            }}
-            onMouseEnter={e => {
-              e.currentTarget.style.transform = "translateY(-3px)";
-              e.currentTarget.style.boxShadow = "0 20px 60px rgba(16,185,129,0.35)";
-              e.currentTarget.style.background = "#059669";
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow = "0 0 0 0 rgba(16,185,129,0)";
-              e.currentTarget.style.background = "#10b981";
-            }}
-          >
-            Começar agora — é grátis
-            <ArrowRight style={{ width: 20, height: 20 }} />
-          </Link>
-
-          {/* Micro trust */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 28,
-              flexWrap: "wrap",
-              marginTop: 32,
-            }}
-          >
-            {["Sem cartão", "7 dias grátis", "Cancela sem explicação"].map((item) => (
-              <span
-                key={item}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  fontSize: 12, color: "rgba(255,255,255,0.14)", fontWeight: 500,
-                }}
-              >
-                <CheckCircle2 style={{ width: 12, height: 12, color: "rgba(16,185,129,0.3)" }} />
-                {item}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── Footer ─────────────────────────────────────────────────────── */}
-      <footer
-        style={{
-          borderTop: "1px solid rgba(255,255,255,0.04)",
-          paddingTop: 40,
-          paddingBottom: 40,
-          paddingLeft: 24,
-          paddingRight: 24,
-        }}
-      >
-        <div
-          className="max-w-6xl mx-auto"
-          style={{
-            display: "flex",
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-            gap: 20,
-            flexWrap: "wrap",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div
-              style={{
-                width: 24, height: 24, borderRadius: 8,
-                background: "#10b981",
-                display: "flex", alignItems: "center", justifyContent: "center",
-              }}
-            >
-              <Trophy style={{ width: 12, height: 12, color: "#fff" }} />
-            </div>
-            <span style={{ fontSize: 13, fontWeight: 900 }}>FutSimples</span>
-            <span style={{ fontSize: 13, color: "rgba(255,255,255,0.12)" }}>· Gestão para escolinhas de futebol</span>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
-            {[
-              { href: "/privacidade", label: "Privacidade" },
-              { href: "/termos",      label: "Termos" },
-              { href: "/login",       label: "Entrar" },
-            ].map(({ href, label }) => (
-              <Link
-                key={href}
-                href={href}
-                style={{ fontSize: 13, color: "rgba(255,255,255,0.2)", transition: "color 0.15s" }}
-                onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.6)")}
-                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.2)")}
-              >
-                {label}
-              </Link>
-            ))}
-          </div>
-        </div>
-        <p
-          className="text-center"
-          style={{ fontSize: 11, color: "rgba(255,255,255,0.08)", marginTop: 24 }}
-        >
-          © {new Date().getFullYear()} FutSimples. Sistema de gestão para escolinhas de futebol no Brasil.
+function FinalCta() {
+  return (
+    <section className="relative overflow-hidden bg-hero-glow">
+      <div className="mx-auto max-w-3xl px-6 py-24 text-center lg:py-32">
+        <h2 className="text-4xl font-bold leading-tight md:text-6xl">
+          Cada mês que passa,
+          <br />
+          é <span className="text-gradient-primary">dinheiro parado.</span>
+        </h2>
+        <p className="mt-5 text-muted-foreground">
+          7 dias grátis. Sem cartão. Se não resolver — não paga nada.
         </p>
-      </footer>
+        <Link
+          href={SETUP_URL}
+          className="mt-8 inline-flex items-center gap-2 rounded-full bg-gradient-primary px-7 py-4 text-base font-semibold text-primary-foreground shadow-glow transition-transform hover:scale-105"
+        >
+          Começar agora — é grátis
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+    </section>
+  );
+}
 
-      {/* SEO */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "SoftwareApplication",
-            "name": "FutSimples",
-            "applicationCategory": "BusinessApplication",
-            "operatingSystem": "Web",
-            "description": "Sistema de gestão para escolinhas de futebol. Controle alunos, pagamentos, inadimplência, presença e relatórios financeiros.",
-            "offers": [
-              { "@type": "Offer", "price": "59.90", "priceCurrency": "BRL" },
-              { "@type": "Offer", "price": "599.00", "priceCurrency": "BRL" },
-            ],
-            "url": "https://futsimples.netlify.app",
-            "inLanguage": "pt-BR",
-          }),
-        }}
-      />
-      <style>{`
-        html { scroll-behavior: smooth; }
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.4; }
-        }
-        @media (max-width: 768px) {
-          .problem-grid { grid-template-columns: 1fr !important; }
-          .feature-table-row { grid-template-columns: 1fr !important; }
-          .steps-grid { grid-template-columns: 1fr !important; }
-          .qual-grid { grid-template-columns: 1fr !important; }
-          .price-grid { grid-template-columns: 1fr !important; }
-          .stats-grid { grid-template-columns: 1fr !important; }
-        }
-      `}</style>
-    </div>
+// ─── Footer ───────────────────────────────────────────────────────────────────
+
+function Footer() {
+  return (
+    <footer className="border-t border-border/50">
+      <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-6 py-8 text-sm text-muted-foreground sm:flex-row">
+        <div className="flex items-center gap-2">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-gradient-primary">
+            <Trophy className="h-3 w-3 text-primary-foreground" strokeWidth={2.5} />
+          </div>
+          <span className="font-semibold text-foreground">FutSimples</span>
+          <span>© {new Date().getFullYear()}</span>
+        </div>
+        <div className="flex items-center gap-5">
+          <a href="#" className="hover:text-foreground">Termos</a>
+          <a href="#" className="hover:text-foreground">Privacidade</a>
+          <a href="#" className="hover:text-foreground">Contato</a>
+        </div>
+      </div>
+    </footer>
   );
 }

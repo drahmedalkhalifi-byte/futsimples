@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Stripe não configurado." }, { status: 500 });
     }
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2024-06-20" });
+    const stripe = new Stripe(stripeKey, { apiVersion: "2025-02-24.acacia" });
     const { adminDb } = await import("@/lib/firebase-admin");
 
     const { schoolId } = await req.json();

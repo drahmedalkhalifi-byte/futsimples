@@ -1,0 +1,56 @@
+
+> escola-futebol@0.1.0 build
+> next build
+
+▲ Next.js 16.2.3 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 37.8s
+  Skipping validation of types
+  Finished TypeScript config validation in 26ms ...
+  Collecting page data using 3 workers ...
+  Generating static pages using 3 workers (0/21) ...
+  Generating static pages using 3 workers (5/21) 
+  Generating static pages using 3 workers (10/21) 
+  Generating static pages using 3 workers (15/21) 
+✓ Generating static pages using 3 workers (21/21) in 3.2s
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /agenda
+├ ○ /alunos
+├ ƒ /api/email/trial-reminder
+├ ƒ /api/email/welcome
+├ ƒ /api/mp/checkout
+├ ƒ /api/mp/status
+├ ƒ /api/mp/webhook
+├ ƒ /api/portal/[token]
+├ ƒ /api/stripe/checkout
+├ ƒ /api/stripe/portal
+├ ƒ /api/stripe/webhook
+├ ƒ /api/team/delete
+├ ƒ /api/team/relink
+├ ○ /assinar
+├ ○ /avisos
+├ ○ /configuracoes
+├ ○ /dashboard
+├ ○ /gastos
+├ ○ /login
+├ ○ /pagamentos
+├ ƒ /portal/[token]
+├ ○ /presenca
+├ ○ /privacidade
+├ ○ /relatorio
+├ ○ /robots.txt
+├ ○ /setup
+├ ○ /sitemap.xml
+├ ○ /termos
+└ ○ /verificar-email
+
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

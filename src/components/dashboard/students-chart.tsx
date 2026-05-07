@@ -9,8 +9,13 @@ import {
   Tooltip,
   ResponsiveContainer,
   Cell,
-  type TooltipProps,
 } from "recharts";
+
+interface CustomTooltipProps {
+  active?: boolean;
+  payload?: Array<{ value?: number; fill?: string }>;
+  label?: string;
+}
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Users } from "lucide-react";
 
@@ -33,7 +38,7 @@ interface StudentsChartProps {
   data: { categoria: string; alunos: number }[];
 }
 
-function CustomTooltip({ active, payload, label }: TooltipProps<number, string>) {
+function CustomTooltip({ active, payload, label }: CustomTooltipProps) {
   if (!active || !payload?.length) return null;
   const n = Number(payload[0]?.value ?? 0);
   return (

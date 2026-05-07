@@ -38,8 +38,8 @@ export function RelatorioPDF() {
         getDocs(query(collection(db, "students"), where("schoolId", "==", schoolId), where("active", "==", true))),
       ]);
 
-      const paid = paidSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Array<{ studentName: string; amount: number; paidAt?: unknown }>;
-      const pending = pendingSnap.docs.map(d => ({ ...d.data(), id: d.id })) as Array<{ studentName: string; amount: number; dueDate?: unknown }>;
+      const paid = paidSnap.docs.map(d => ({ ...d.data(), id: d.id })) as unknown as Array<{ studentName: string; amount: number; paidAt?: unknown }>;
+      const pending = pendingSnap.docs.map(d => ({ ...d.data(), id: d.id })) as unknown as Array<{ studentName: string; amount: number; dueDate?: unknown }>;
 
       const totalReceived = paid.reduce((s, p) => s + (p.amount ?? 0), 0);
       const totalPending = pending.reduce((s, p) => s + (p.amount ?? 0), 0);

@@ -124,9 +124,11 @@ export default function RelatorioPage() {
 
   const monthExpenses = expenses.filter((e) => {
     if (e.type === "recurring") return true;
-    const d = e.date instanceof Date
-      ? e.date
-      : (e.date as { toDate?: () => Date })?.toDate?.() ?? new Date(e.date as string);
+    if (!e.date) return false;
+    const rawDate = e.date as unknown;
+    const d = rawDate instanceof Date
+      ? rawDate
+      : (rawDate as { toDate?: () => Date })?.toDate?.() ?? new Date(rawDate as string);
     return d.getFullYear() === year && d.getMonth() + 1 === mon;
   });
 

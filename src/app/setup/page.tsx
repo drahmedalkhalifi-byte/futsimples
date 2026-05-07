@@ -408,12 +408,12 @@ export default function SetupPage() {
                 {step === "error" && (
                   <div className="space-y-2">
                     {emailInUse ? (
-                      <Button className="w-full" asChild>
-                        <Link href="/login">
+                      <Link href="/login" className="w-full">
+                        <Button className="w-full">
                           <LogIn className="w-4 h-4 mr-2" />
                           Ir para o Login
-                        </Link>
-                      </Button>
+                        </Button>
+                      </Link>
                     ) : (
                       <Button
                         variant="outline"
