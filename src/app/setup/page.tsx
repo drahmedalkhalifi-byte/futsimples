@@ -451,10 +451,23 @@ export default function SetupPage() {
                     <>
                       <p className="text-sm text-muted-foreground mt-1">
                         Enviamos um link de confirmação para{" "}
-                        <strong>{adminEmail}</strong>. Clique no link e depois acesse o sistema.
+                        <strong>{adminEmail}</strong>.
                       </p>
-                      <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 mt-3">
-                        Verifique sua caixa de entrada e a pasta de spam.
+
+                      {/* Spam warning — prominent */}
+                      <div className="rounded-xl border border-amber-400/50 bg-amber-500/10 p-4 text-left mt-4 space-y-2">
+                        <p className="text-sm font-semibold text-amber-400 flex items-center gap-2">
+                          ⚠️ O email pode ter ido para o SPAM
+                        </p>
+                        <p className="text-sm text-amber-300/90 leading-relaxed">
+                          Alguns provedores (Gmail, Hotmail, Yahoo) podem filtrar o email de confirmação.
+                        </p>
+                        <ol className="text-sm text-amber-300/90 space-y-1 list-decimal list-inside">
+                          <li>Abra seu email: <strong className="text-amber-300">{adminEmail}</strong></li>
+                          <li>Procure na pasta <strong className="text-amber-300">Spam</strong> ou <strong className="text-amber-300">Lixo Eletrônico</strong></li>
+                          <li>Clique no email do <strong className="text-amber-300">FutSimples</strong> e confirme</li>
+                          <li>Marque como <strong className="text-amber-300">"Não é spam"</strong> para receber próximos emails</li>
+                        </ol>
                       </div>
                     </>
                   )}
